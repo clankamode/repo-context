@@ -1,0 +1,29 @@
+{
+  "name": "repo-context",
+  "version": "0.1.0",
+  "description": "Generate REPO.json and REPO.md for any git repo",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "repo-context": "dist/index.js",
+    "repo-context-mcp": "dist/mcp-server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "dev": "tsx src/index.ts",
+    "start:mcp": "tsx src/mcp-server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
