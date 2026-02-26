@@ -2,21 +2,23 @@
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildRepoContext } from "./context.js";
-import { toRepoJson, toRepoMarkdown } from "./reporter.js";
+import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
 
 function usage(): string {
   return [
     "repo-context [path]",
-    "  --json         stdout JSON only",
-    "  --md           stdout Markdown only",
-    "  --out <file>   write output to file (.json or .md)",
-    "  --version      print version",
-    "  --help         usage"
+    "  --json              stdout JSON only",
+    "  --md                stdout Markdown only",
+    "  --compact           one-paragraph summary",
+    "  --since <period>    filter git log (e.g. '7 days ago')",
+    "  --out <file>        write output to file (.json or .md)",
+    "  --version           print version",
+    "  --help              usage"
   ].join("\n");
 }
 
 function getVersion(): string {
-  return "0.1.0";
+  return "0.2.0";
 }
 
 function run(): void {
@@ -38,16 +40,29 @@ function run(): void {
     throw new Error("--out requires a file path");
   }
 
+  const sinceIndex = args.indexOf("--since");
+  const since = sinceIndex >= 0 ? args[sinceIndex + 1] : undefined;
+  if (sinceIndex >= 0 && !since) {
+    throw new Error("--since requires a value (e.g. '7 days ago')");
+  }
+
+  const compact = args.includes("--compact");
+
   const filtered = args.filter((arg, idx) => {
-    if (arg === "--json" || arg === "--md" || arg === "--help" || arg === "--version") return false;
-    if (arg === "--out") return false;
-    if (idx > 0 && args[idx - 1] === "--out") return false;
+    if (["--json", "--md", "--compact", "--help", "--version"].includes(arg)) return false;
+    if (arg === "--out" || arg === "--since") return false;
+    if (idx > 0 && (args[idx - 1] === "--out" || args[idx - 1] === "--since")) return false;
     return true;
   });
 
   const inputPath = filtered[0] ?? ".";
   const repoPath = resolve(inputPath);
-  const context = buildRepoContext(repoPath);
+  const context = buildRepoContext(repoPath, { since });
+
+  if (compact) {
+    process.stdout.write(`${toCompactSummary(context)}\n`);
+    return;
+  }
 
   const jsonOnly = args.includes("--json");
   const mdOnly = args.includes("--md");

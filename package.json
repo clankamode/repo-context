@@ -1,6 +1,6 @@
 {
   "name": "repo-context",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generate REPO.json and REPO.md for any git repo",
   "license": "MIT",
   "type": "module",

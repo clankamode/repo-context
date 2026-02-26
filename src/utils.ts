@@ -84,3 +84,15 @@ export function countLinesInFile(filePath: string): number {
 export function unique<T>(values: T[]): T[] {
   return [...new Set(values)];
 }
+
+export function tryExec(command: string, args: string[], cwd: string): string | null {
+  try {
+    return execFileSync(command, args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }).trim();
+  } catch {
+    return null;
+  }
+}
