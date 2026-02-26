@@ -1,5 +1,5 @@
 import { HotPath, ConventionsInfo, RecentChanges } from "./types.js";
-import { tryGit } from "./utils.js";
+import { tryExec, tryGit } from "./utils.js";
 
 const CONVENTIONAL_PREFIX = /^(feat|fix|chore)(\(.+\))?:\s+.+/;
 
@@ -31,8 +31,10 @@ export function getHotPaths(repoPath: string, days = 30): HotPath[] {
   return parseHotPathsFromLog(output);
 }
 
-export function getRecentChanges(repoPath: string): RecentChanges {
-  const line = tryGit(repoPath, ["log", "-1", "--pretty=format:%s|%H|%ci"]);
+export function getRecentChanges(repoPath: string, since?: string): RecentChanges {
+  const logArgs = ["log", "-1", "--pretty=format:%s|%H|%ci"];
+  if (since) logArgs.splice(1, 0, `--since=${since}`);
+  const line = tryGit(repoPath, logArgs);
   const [message = "", sha = "", date = ""] = line.split("|");
 
   const branchesRaw = tryGit(repoPath, ["branch", "-r"]);
@@ -47,12 +49,30 @@ export function getRecentChanges(repoPath: string): RecentChanges {
     last_commit: message,
     last_commit_sha: sha,
     last_commit_date: date,
-    active_branches
+    active_branches,
+    open_prs: getOpenPrCount(repoPath),
+    open_issues: getOpenIssueCount(repoPath)
   };
 }
 
-export function getConventions(repoPath: string): ConventionsInfo {
-  const output = tryGit(repoPath, ["log", "-20", "--pretty=format:%s"]);
+export function getOpenPrCount(repoPath: string): number | null {
+  const output = tryExec("gh", ["pr", "list", "--json", "number", "--jq", "length"], repoPath);
+  if (output === null) return null;
+  const n = parseInt(output, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+export function getOpenIssueCount(repoPath: string): number | null {
+  const output = tryExec("gh", ["issue", "list", "--json", "number", "--jq", "length"], repoPath);
+  if (output === null) return null;
+  const n = parseInt(output, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+export function getConventions(repoPath: string, since?: string): ConventionsInfo {
+  const logArgs = ["log", "-20", "--pretty=format:%s"];
+  if (since) logArgs.splice(1, 0, `--since=${since}`);
+  const output = tryGit(repoPath, logArgs);
   const messages = output.split("\n").map((m) => m.trim()).filter(Boolean);
 
   if (messages.length === 0) {

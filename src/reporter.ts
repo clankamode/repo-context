@@ -9,6 +9,14 @@ export function toRepoMarkdown(context: RepoContext): string {
     ? context.hot_paths.map((p) => `- ${p.file} (${p.commits_30d} commits/30d)`).join("\n")
     : "- None";
 
+  const prIssue: string[] = [];
+  if (context.recent_changes.open_prs !== null) {
+    prIssue.push(`- **Open PRs**: ${context.recent_changes.open_prs}`);
+  }
+  if (context.recent_changes.open_issues !== null) {
+    prIssue.push(`- **Open Issues**: ${context.recent_changes.open_issues}`);
+  }
+
   const lines = [
     "# Repository Context",
     "",
@@ -43,6 +51,7 @@ export function toRepoMarkdown(context: RepoContext): string {
     `- **SHA**: ${context.recent_changes.last_commit_sha}`,
     `- **Date**: ${context.recent_changes.last_commit_date}`,
     `- **Active Branches**: ${context.recent_changes.active_branches.join(", ") || "None"}`,
+    ...prIssue,
     "",
     "## Dependencies",
     `- **Direct**: ${context.dependencies.direct}`,
@@ -54,4 +63,31 @@ export function toRepoMarkdown(context: RepoContext): string {
   ];
 
   return `${lines.join("\n")}\n`;
+}
+
+export function toCompactSummary(context: RepoContext): string {
+  const langs = context.stack.languages.join(", ") || "unknown languages";
+  const frameworks = context.stack.frameworks.length
+    ? ` with ${context.stack.frameworks.join(", ")}`
+    : "";
+  const files = context.structure.total_files;
+  const lines = context.structure.total_lines;
+  const hotFile = context.hot_paths[0]?.file ?? "N/A";
+  const lastCommit = context.recent_changes.last_commit || "N/A";
+  const branches = context.recent_changes.active_branches.length;
+
+  const prPart = context.recent_changes.open_prs !== null
+    ? `, ${context.recent_changes.open_prs} open PRs`
+    : "";
+  const issuePart = context.recent_changes.open_issues !== null
+    ? `, ${context.recent_changes.open_issues} open issues`
+    : "";
+
+  return (
+    `${context.repo} is a ${langs}${frameworks} project` +
+    ` (${files} files, ${lines} lines).` +
+    ` Hottest file: ${hotFile}.` +
+    ` Last commit: "${lastCommit}".` +
+    ` ${branches} active branch(es)${prPart}${issuePart}.`
+  );
 }

@@ -33,6 +33,8 @@ export interface RecentChanges {
   last_commit_sha: string;
   last_commit_date: string;
   active_branches: string[];
+  open_prs: number | null;
+  open_issues: number | null;
 }
 
 export interface DependenciesInfo {
