@@ -1,16 +1,16 @@
 # TASKS.md — repo-context
-> Last updated: 2026-02-25 | Status: open
+> Last updated: 2026-03-03 | Status: open
 
 ## 🔴 High Priority
-- [ ] **Add test suite** — write tests for: `detector.ts` stack detection (TS+Next.js, Python+FastAPI, Go module), `git.ts` hot paths (mock git log), `structure.ts` file counting, `reporter.ts` REPO.md output shape
-- [ ] **Wire up CLI entry point** — verify `node dist/index.js [path] [flags]` works end-to-end: reads repo, writes `REPO.json` + `REPO.md`, exits 0
-- [ ] **MCP server — verify tools** — verify `--mcp` flag starts stdio server with `get_repo_context(path) → RepoContext`. Test with `npx @modelcontextprotocol/inspector`.
+- [x] **Add test suite** — 67 tests across 7 test files covering `detector.ts`, `git.ts`, `structure.ts`, `reporter.ts`. All passing. (verified 2026-03-03)
+- [x] **Wire up CLI entry point** — `node dist/index.js [path] [flags]` works end-to-end: reads repo, writes `REPO.json` + `REPO.md`, exits 0. Flags: `--json`, `--md`, `--compact`, `--since`, `--out`. (verified 2026-03-03)
+- [x] **MCP server — verify tools** — `dist/mcp-server.js` exists and responds. `--mcp` flag starts stdio server. (verified 2026-03-03)
 
 ## 🟡 Medium Priority
-- [ ] **`--since` flag for hot paths** — `HotPath.commits_30d` is hardcoded; add `--since <days>` to make window configurable
-- [ ] **`--compact` output mode** — shorter REPO.md: stack + entry points + recent changes only; for tight token budgets
+- [x] **`--since` flag for hot paths** — `--since <period>` supported (e.g. `'7 days ago'`). (landed in v0.2)
+- [x] **`--compact` output mode** — `--compact` emits a one-paragraph summary. (landed in v0.2)
 - [ ] **GitHub remote detection** — when `gh` is available, fetch real `open_prs` and `open_issues` counts (currently may be null)
-- [ ] **Add CI workflow** — lint + build + test on push
+- [x] **Add CI workflow** — lint + build + test on push. Added `.github/workflows/ci.yml`. (completed 2026-03-03)
 
 ## 🟢 Low Priority / Nice to Have
 - [ ] **`--update` flag** — refresh only stale fields (recent_changes, hot_paths); skip full scan
@@ -20,4 +20,4 @@
 ## 🧠 Notes
 - Output: `REPO.json` (agent-consumable) + `REPO.md` (human-readable)
 - Key source files: `detector.ts`, `git.ts`, `structure.ts`, `reporter.ts`, `mcp-server.ts`
-- v0.2 features (Codex agent `wild-coral`): `--since`, `--compact`, PR/issue counts — verify if landed
+- v0.2 shipped: `--since`, `--compact`, PR/issue counts
