@@ -9,7 +9,7 @@
 ## 🟡 Medium Priority
 - [x] **`--since` flag for hot paths** — `--since <period>` supported (e.g. `'7 days ago'`). (landed in v0.2)
 - [x] **`--compact` output mode** — `--compact` emits a one-paragraph summary. (landed in v0.2)
-- [ ] **GitHub remote detection** — when `gh` is available, fetch real `open_prs` and `open_issues` counts (currently may be null)
+- [x] **GitHub remote detection** — when `gh` is available, fetch real `open_prs` and `open_issues` counts via GitHub remote + GraphQL `totalCount`; falls back to `null` when `gh` is unavailable or unauthenticated. (completed 2026-03-05)
 - [x] **Add CI workflow** — lint + build + test on push. Added `.github/workflows/ci.yml`. (completed 2026-03-03)
 
 ## 🟢 Low Priority / Nice to Have
