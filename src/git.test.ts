@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { tryGit, tryExec } from "./utils.js";
-import { parseHotPathsFromLog, getHotPaths, getConventions } from "./git.js";
+import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug } from "./git.js";
 
 vi.mock("./utils.js", () => ({
   tryGit: vi.fn(),
   tryExec: vi.fn(),
 }));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(tryGit).mockReturnValue("");
+  vi.mocked(tryExec).mockReturnValue(null);
+});
 
 describe("parseHotPathsFromLog", () => {
   it("returns empty array for empty input", () => {
@@ -151,5 +157,58 @@ describe("getConventions", () => {
     expect(result.common_types).toHaveLength(3);
     expect(result.common_types[0]).toBe("feat");
     expect(result.common_types[1]).toBe("fix");
+  });
+});
+
+describe("GitHub remote + open counts", () => {
+  it("extracts owner/repo from common GitHub remote URL formats", () => {
+    expect(parseGitHubRepoSlug("https://github.com/octocat/hello-world.git")).toBe("octocat/hello-world");
+    expect(parseGitHubRepoSlug("git@github.com:octocat/hello-world.git")).toBe("octocat/hello-world");
+    expect(parseGitHubRepoSlug("ssh://git@github.com/octocat/hello-world")).toBe("octocat/hello-world");
+  });
+
+  it("prefers origin fetch remote when detecting repository slug", () => {
+    vi.mocked(tryGit).mockReturnValue(
+      [
+        "upstream https://github.com/other/fork (fetch)",
+        "origin git@github.com:octocat/hello-world.git (fetch)",
+        "origin git@github.com:octocat/hello-world.git (push)"
+      ].join("\n")
+    );
+
+    expect(getGitHubRepoSlug("/fake/repo")).toBe("octocat/hello-world");
+  });
+
+  it("returns null and skips gh when there is no GitHub remote", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://gitlab.com/octocat/hello-world.git (fetch)");
+
+    expect(getOpenPrCount("/fake/repo")).toBeNull();
+    expect(getOpenIssueCount("/fake/repo")).toBeNull();
+    expect(tryExec).not.toHaveBeenCalled();
+  });
+
+  it("returns pull request and issue counts via gh graphql", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://github.com/octocat/hello-world.git (fetch)");
+    vi.mocked(tryExec)
+      .mockReturnValueOnce("12")
+      .mockReturnValueOnce("34");
+
+    expect(getOpenPrCount("/fake/repo")).toBe(12);
+    expect(getOpenIssueCount("/fake/repo")).toBe(34);
+
+    const [firstCall, secondCall] = vi.mocked(tryExec).mock.calls;
+    expect(firstCall[0]).toBe("gh");
+    expect(firstCall[1]).toContain("owner=octocat");
+    expect(firstCall[1]).toContain("name=hello-world");
+    expect(firstCall[1]).toContain(".data.repository.pullRequests.totalCount");
+    expect(secondCall[1]).toContain(".data.repository.issues.totalCount");
+  });
+
+  it("returns null when gh cannot query counts (e.g. missing auth)", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://github.com/octocat/hello-world.git (fetch)");
+    vi.mocked(tryExec).mockReturnValue(null);
+
+    expect(getOpenPrCount("/fake/repo")).toBeNull();
+    expect(getOpenIssueCount("/fake/repo")).toBeNull();
   });
 });

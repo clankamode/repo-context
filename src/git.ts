@@ -2,6 +2,8 @@ import { HotPath, ConventionsInfo, RecentChanges } from "./types.js";
 import { tryExec, tryGit } from "./utils.js";
 
 const CONVENTIONAL_PREFIX = /^(feat|fix|chore)(\(.+\))?:\s+.+/;
+const GITHUB_REMOTE_PATTERN = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i;
+const GITHUB_REMOTE_LINE = /^(\S+)\s+(\S+)\s+\((fetch|push)\)$/;
 
 export function parseHotPathsFromLog(logOutput: string, topN = 10): HotPath[] {
   const counts = new Map<string, number>();
@@ -44,29 +46,71 @@ export function getRecentChanges(repoPath: string, since?: string): RecentChange
     .filter(Boolean)
     .filter((b) => !["main", "master", "HEAD -> origin/main", "HEAD -> origin/master"].includes(b))
     .slice(0, 5);
+  const githubRepo = getGitHubRepoSlug(repoPath);
 
   return {
     last_commit: message,
     last_commit_sha: sha,
     last_commit_date: date,
     active_branches,
-    open_prs: getOpenPrCount(repoPath),
-    open_issues: getOpenIssueCount(repoPath)
+    open_prs: getOpenPrCount(repoPath, githubRepo),
+    open_issues: getOpenIssueCount(repoPath, githubRepo)
   };
 }
 
-export function getOpenPrCount(repoPath: string): number | null {
-  const output = tryExec("gh", ["pr", "list", "--json", "number", "--jq", "length"], repoPath);
+export function getGitHubRepoSlug(repoPath: string): string | null {
+  const remotes = tryGit(repoPath, ["remote", "-v"]);
+  if (!remotes) return null;
+
+  const fallback: string[] = [];
+  for (const rawLine of remotes.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const parts = line.match(GITHUB_REMOTE_LINE);
+    if (!parts) continue;
+    const [_, remoteName, remoteUrl, direction] = parts;
+    const slug = parseGitHubRepoSlug(remoteUrl);
+    if (!slug) continue;
+    if (remoteName === "origin" && direction === "fetch") return slug;
+    fallback.push(slug);
+  }
+
+  return fallback[0] ?? null;
+}
+
+export function parseGitHubRepoSlug(remoteUrl: string): string | null {
+  const trimmed = remoteUrl.trim();
+  const match = trimmed.match(GITHUB_REMOTE_PATTERN);
+  if (!match) return null;
+  const owner = match[1];
+  const repo = match[2];
+  if (!owner || !repo) return null;
+  return `${owner}/${repo}`;
+}
+
+function getGitHubCount(repoPath: string, githubRepo: string | null, type: "pullRequests" | "issues"): number | null {
+  if (!githubRepo) return null;
+  const [owner, name] = githubRepo.split("/", 2);
+  if (!owner || !name) return null;
+
+  const countField = type === "pullRequests" ? "pullRequests(states: OPEN)" : "issues(states: OPEN)";
+  const jqPath = type === "pullRequests"
+    ? ".data.repository.pullRequests.totalCount"
+    : ".data.repository.issues.totalCount";
+  const query = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){${countField}{totalCount}}}`;
+
+  const output = tryExec("gh", ["api", "graphql", "-f", `query=${query}`, "-F", `owner=${owner}`, "-F", `name=${name}`, "--jq", jqPath], repoPath);
   if (output === null) return null;
   const n = parseInt(output, 10);
   return Number.isNaN(n) ? null : n;
 }
 
-export function getOpenIssueCount(repoPath: string): number | null {
-  const output = tryExec("gh", ["issue", "list", "--json", "number", "--jq", "length"], repoPath);
-  if (output === null) return null;
-  const n = parseInt(output, 10);
-  return Number.isNaN(n) ? null : n;
+export function getOpenPrCount(repoPath: string, githubRepo = getGitHubRepoSlug(repoPath)): number | null {
+  return getGitHubCount(repoPath, githubRepo, "pullRequests");
+}
+
+export function getOpenIssueCount(repoPath: string, githubRepo = getGitHubRepoSlug(repoPath)): number | null {
+  return getGitHubCount(repoPath, githubRepo, "issues");
 }
 
 export function getConventions(repoPath: string, since?: string): ConventionsInfo {
