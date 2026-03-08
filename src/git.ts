@@ -4,6 +4,7 @@ import { tryExec, tryGit } from "./utils.js";
 const CONVENTIONAL_PREFIX = /^(feat|fix|chore)(\(.+\))?:\s+.+/;
 const GITHUB_REMOTE_PATTERN = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i;
 const GITHUB_REMOTE_LINE = /^(\S+)\s+(\S+)\s+\((fetch|push)\)$/;
+const GITHUB_REPO_SLUG = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
 export function parseHotPathsFromLog(logOutput: string, topN = 10): HotPath[] {
   const counts = new Map<string, number>();
@@ -60,22 +61,28 @@ export function getRecentChanges(repoPath: string, since?: string): RecentChange
 
 export function getGitHubRepoSlug(repoPath: string): string | null {
   const remotes = tryGit(repoPath, ["remote", "-v"]);
-  if (!remotes) return null;
 
-  const fallback: string[] = [];
-  for (const rawLine of remotes.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    const parts = line.match(GITHUB_REMOTE_LINE);
-    if (!parts) continue;
-    const [_, remoteName, remoteUrl, direction] = parts;
-    const slug = parseGitHubRepoSlug(remoteUrl);
-    if (!slug) continue;
-    if (remoteName === "origin" && direction === "fetch") return slug;
-    fallback.push(slug);
+  if (remotes) {
+    const fallback: string[] = [];
+    for (const rawLine of remotes.split("\n")) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      const parts = line.match(GITHUB_REMOTE_LINE);
+      if (!parts) continue;
+      const [_, remoteName, remoteUrl, direction] = parts;
+      const slug = parseGitHubRepoSlug(remoteUrl);
+      if (!slug) continue;
+      if (remoteName === "origin" && direction === "fetch") return slug;
+      fallback.push(slug);
+    }
+
+    if (fallback[0]) return fallback[0];
   }
 
-  return fallback[0] ?? null;
+  const ghRepo = tryExec("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], repoPath);
+  if (!ghRepo) return null;
+  const slug = ghRepo.trim();
+  return GITHUB_REPO_SLUG.test(slug) ? slug : null;
 }
 
 export function parseGitHubRepoSlug(remoteUrl: string): string | null {
