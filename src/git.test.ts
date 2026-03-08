@@ -179,12 +179,39 @@ describe("GitHub remote + open counts", () => {
     expect(getGitHubRepoSlug("/fake/repo")).toBe("octocat/hello-world");
   });
 
-  it("returns null and skips gh when there is no GitHub remote", () => {
+  it("returns null when there is no GitHub remote and gh cannot resolve repo", () => {
     vi.mocked(tryGit).mockReturnValue("origin https://gitlab.com/octocat/hello-world.git (fetch)");
+    vi.mocked(tryExec).mockReturnValue(null);
 
     expect(getOpenPrCount("/fake/repo")).toBeNull();
     expect(getOpenIssueCount("/fake/repo")).toBeNull();
-    expect(tryExec).not.toHaveBeenCalled();
+
+    const calls = vi.mocked(tryExec).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls.every(([, args]) => args[0] === "repo" && args[1] === "view")).toBe(true);
+  });
+
+  it("falls back to gh repo view when GitHub remote parsing fails", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://gitlab.com/octocat/hello-world.git (fetch)");
+    vi.mocked(tryExec)
+      .mockReturnValueOnce("octocat/hello-world")
+      .mockReturnValueOnce("9");
+
+    expect(getOpenPrCount("/fake/repo")).toBe(9);
+
+    const [firstCall, secondCall] = vi.mocked(tryExec).mock.calls;
+    expect(firstCall[1]).toEqual(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]);
+    expect(secondCall[1]).toContain("graphql");
+    expect(secondCall[1]).toContain("owner=octocat");
+    expect(secondCall[1]).toContain("name=hello-world");
+  });
+
+  it("ignores malformed gh repo view output", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://gitlab.com/octocat/hello-world.git (fetch)");
+    vi.mocked(tryExec).mockReturnValue("not-a-slug");
+
+    expect(getOpenPrCount("/fake/repo")).toBeNull();
+    expect(vi.mocked(tryExec)).toHaveBeenCalledTimes(1);
   });
 
   it("returns pull request and issue counts via gh graphql", () => {
