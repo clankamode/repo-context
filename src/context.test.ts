@@ -209,4 +209,23 @@ describe("updateRepoContext", () => {
     expect(getHotPaths).toHaveBeenCalledOnce();
     expect(getRecentChanges).toHaveBeenCalledOnce();
   });
+
+  it("falls back to a full build when cached REPO.json is malformed", () => {
+    vi.mocked(safeReadJson).mockReturnValueOnce({
+      version: "1.0",
+      hot_paths: [],
+      recent_changes: {}
+    });
+
+    const result = updateRepoContext("/fake/repo", {
+      now: new Date("2026-03-08T10:00:00.000Z")
+    });
+
+    expect(result.stack).toEqual(stack);
+    expect(detectStack).toHaveBeenCalledOnce();
+    expect(analyzeStructure).toHaveBeenCalledOnce();
+    expect(getConventions).toHaveBeenCalledOnce();
+    expect(getHotPaths).toHaveBeenCalledOnce();
+    expect(getRecentChanges).toHaveBeenCalledOnce();
+  });
 });
