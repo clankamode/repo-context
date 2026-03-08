@@ -1,36 +1,45 @@
 #!/usr/bin/env node
 import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { buildRepoContext } from "./context.js";
+import { fileURLToPath } from "node:url";
+import { buildRepoContext, updateRepoContext } from "./context.js";
 import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
 
-function usage(): string {
+export function usage(): string {
   return [
     "repo-context [path]",
     "  --json              stdout JSON only",
     "  --md                stdout Markdown only",
     "  --compact           one-paragraph summary",
     "  --since <period>    filter git log (e.g. '7 days ago')",
+    "  --update            refresh stale recent_changes and hot_paths only",
     "  --out <file>        write output to file (.json or .md)",
     "  --version           print version",
     "  --help              usage"
   ].join("\n");
 }
 
-function getVersion(): string {
+export function getVersion(): string {
   return "0.2.0";
 }
 
-function run(): void {
-  const args = process.argv.slice(2);
+interface CliIo {
+  write(text: string): void;
+}
+
+export function runCli(args = process.argv.slice(2), io: CliIo = {
+  write(text: string): void {
+    process.stdout.write(text);
+  }
+}): void {
 
   if (args.includes("--help")) {
-    process.stdout.write(`${usage()}\n`);
+    io.write(`${usage()}\n`);
     return;
   }
 
   if (args.includes("--version")) {
-    process.stdout.write(`${getVersion()}\n`);
+    io.write(`${getVersion()}\n`);
     return;
   }
 
@@ -47,9 +56,10 @@ function run(): void {
   }
 
   const compact = args.includes("--compact");
+  const updateOnly = args.includes("--update");
 
   const filtered = args.filter((arg, idx) => {
-    if (["--json", "--md", "--compact", "--help", "--version"].includes(arg)) return false;
+    if (["--json", "--md", "--compact", "--help", "--version", "--update"].includes(arg)) return false;
     if (arg === "--out" || arg === "--since") return false;
     if (idx > 0 && (args[idx - 1] === "--out" || args[idx - 1] === "--since")) return false;
     return true;
@@ -57,10 +67,12 @@ function run(): void {
 
   const inputPath = filtered[0] ?? ".";
   const repoPath = resolve(inputPath);
-  const context = buildRepoContext(repoPath, { since });
+  const context = updateOnly
+    ? updateRepoContext(repoPath, { since })
+    : buildRepoContext(repoPath, { since });
 
   if (compact) {
-    process.stdout.write(`${toCompactSummary(context)}\n`);
+    io.write(`${toCompactSummary(context)}\n`);
     return;
   }
 
@@ -79,30 +91,32 @@ function run(): void {
     } else {
       throw new Error("--out must end in .json or .md");
     }
-    process.stdout.write(`${outPath}\n`);
+    io.write(`${outPath}\n`);
     return;
   }
 
   if (jsonOnly && mdOnly) {
-    process.stdout.write(json);
-    process.stdout.write("\n");
-    process.stdout.write(md);
+    io.write(json);
+    io.write("\n");
+    io.write(md);
     return;
   }
 
   if (jsonOnly) {
-    process.stdout.write(json);
+    io.write(json);
     return;
   }
 
   if (mdOnly) {
-    process.stdout.write(md);
+    io.write(md);
     return;
   }
 
   writeFileSync(join(repoPath, "REPO.json"), json, "utf8");
   writeFileSync(join(repoPath, "REPO.md"), md, "utf8");
-  process.stdout.write(`Generated ${join(repoPath, "REPO.json")} and ${join(repoPath, "REPO.md")}\n`);
+  io.write(`Generated ${join(repoPath, "REPO.json")} and ${join(repoPath, "REPO.md")}\n`);
 }
 
-run();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  runCli();
+}
