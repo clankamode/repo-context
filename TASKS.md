@@ -1,5 +1,5 @@
 # TASKS.md — repo-context
-> Last updated: 2026-03-03 | Status: open
+> Last updated: 2026-03-08 | Status: open
 
 ## 🔴 High Priority
 - [x] **Add test suite** — 67 tests across 7 test files covering `detector.ts`, `git.ts`, `structure.ts`, `reporter.ts`. All passing. (verified 2026-03-03)
@@ -9,7 +9,7 @@
 ## 🟡 Medium Priority
 - [x] **`--since` flag for hot paths** — `--since <period>` supported (e.g. `'7 days ago'`). (landed in v0.2)
 - [x] **`--compact` output mode** — `--compact` emits a one-paragraph summary. (landed in v0.2)
-- [x] **GitHub remote detection** — when `gh` is available, fetch real `open_prs` and `open_issues` counts via GitHub remote + GraphQL `totalCount`; falls back to `null` when `gh` is unavailable or unauthenticated. (completed 2026-03-05)
+- [x] **GitHub remote detection** — when `gh` is available, fetch real `open_prs` and `open_issues` counts via GitHub remote + GraphQL `totalCount`; now includes `gh repo view` fallback when remote parsing fails, and still falls back to `null` when `gh`/auth/network is unavailable. (completed 2026-03-08)
 - [x] **Add CI workflow** — lint + build + test on push. Added `.github/workflows/ci.yml`. (completed 2026-03-03)
 
 ## 🟢 Low Priority / Nice to Have
