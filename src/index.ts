@@ -1,16 +1,19 @@
 #!/usr/bin/env node
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { buildRepoContext } from "./context.js";
+import { fileURLToPath } from "node:url";
+import { buildRepoContext, refreshStaleFields } from "./context.js";
 import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
+import { RepoContext } from "./types.js";
 
-function usage(): string {
+export function usage(): string {
   return [
     "repo-context [path]",
     "  --json              stdout JSON only",
     "  --md                stdout Markdown only",
     "  --compact           one-paragraph summary",
     "  --since <period>    filter git log (e.g. '7 days ago')",
+    "  --update            refresh only stale fields (recent_changes, hot_paths) from existing REPO.json",
     "  --out <file>        write output to file (.json or .md)",
     "  --version           print version",
     "  --help              usage"
@@ -21,7 +24,32 @@ function getVersion(): string {
   return "0.2.0";
 }
 
-function run(): void {
+export function readPreviousContext(repoPath: string): RepoContext {
+  const repoJsonPath = join(repoPath, "REPO.json");
+  if (!existsSync(repoJsonPath)) {
+    throw new Error(`--update requires an existing ${repoJsonPath}. Run repo-context once first to generate a full baseline.`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(repoJsonPath, "utf8"));
+  } catch {
+    throw new Error(`Unable to parse ${repoJsonPath}. Re-run repo-context without --update to regenerate it.`);
+  }
+
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    !("recent_changes" in parsed) ||
+    !("hot_paths" in parsed)
+  ) {
+    throw new Error(`Existing ${repoJsonPath} is missing required fields. Re-run repo-context without --update to regenerate a valid baseline.`);
+  }
+
+  return parsed as RepoContext;
+}
+
+export function run(): void {
   const args = process.argv.slice(2);
 
   if (args.includes("--help")) {
@@ -47,9 +75,10 @@ function run(): void {
   }
 
   const compact = args.includes("--compact");
+  const updateOnly = args.includes("--update");
 
   const filtered = args.filter((arg, idx) => {
-    if (["--json", "--md", "--compact", "--help", "--version"].includes(arg)) return false;
+    if (["--json", "--md", "--compact", "--help", "--version", "--update"].includes(arg)) return false;
     if (arg === "--out" || arg === "--since") return false;
     if (idx > 0 && (args[idx - 1] === "--out" || args[idx - 1] === "--since")) return false;
     return true;
@@ -57,7 +86,10 @@ function run(): void {
 
   const inputPath = filtered[0] ?? ".";
   const repoPath = resolve(inputPath);
-  const context = buildRepoContext(repoPath, { since });
+  const freshContext = buildRepoContext(repoPath, { since });
+  const context = updateOnly
+    ? refreshStaleFields(readPreviousContext(repoPath), freshContext)
+    : freshContext;
 
   if (compact) {
     process.stdout.write(`${toCompactSummary(context)}\n`);
@@ -105,4 +137,8 @@ function run(): void {
   process.stdout.write(`Generated ${join(repoPath, "REPO.json")} and ${join(repoPath, "REPO.md")}\n`);
 }
 
-run();
+const isDirectRun = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  run();
+}

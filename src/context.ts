@@ -45,3 +45,12 @@ export function buildRepoContext(repoPathArg: string, opts: BuildOptions = {}): 
       "AI coding agents: use existing project patterns, keep changes scoped, and follow detected test/commit conventions."
   };
 }
+
+export function refreshStaleFields(previous: RepoContext, fresh: RepoContext): RepoContext {
+  return {
+    ...previous,
+    generated: fresh.generated,
+    hot_paths: fresh.hot_paths,
+    recent_changes: fresh.recent_changes,
+  };
+}
