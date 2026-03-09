@@ -79,10 +79,20 @@ repo-context owner/repo
 repo-context --json          # stdout JSON
 repo-context --md            # stdout Markdown
 repo-context --out REPO.md   # write to file
+repo-context --update        # refresh stale recent_changes/hot_paths only
 
 # Watch mode (regenerate on git changes)
 repo-context --watch
 ```
+
+### Incremental Refresh
+
+`--update` reads the existing `REPO.json` in the target repo and skips the full file-system scan when it can reuse cached sections.
+
+- `recent_changes` is refreshed when older than 1 hour, or immediately when `--since` is supplied
+- `hot_paths` is refreshed when older than 24 hours
+- if `REPO.json` is missing or invalid, `--update` falls back to a full rebuild
+- refresh timestamps are stored under an optional `refresh` object in `REPO.json` for future `--update` runs
 
 ## GitHub Action
 

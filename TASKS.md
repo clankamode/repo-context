@@ -13,11 +13,11 @@
 - [x] **Add CI workflow** — lint + build + test on push. Added `.github/workflows/ci.yml`. (completed 2026-03-03)
 
 ## 🟢 Low Priority / Nice to Have
-- [ ] **`--update` flag** — refresh only stale fields (recent_changes, hot_paths); skip full scan
+- [x] **`--update` flag** — refresh only stale fields (recent_changes, hot_paths); skip full scan. Uses cached `REPO.json`, updates `recent_changes` after 1 hour and `hot_paths` after 24 hours, and falls back to a full rebuild if the cache is missing. (completed 2026-03-08)
 - [ ] **`--diff` mode** — compare current `REPO.json` with previous, print what changed
 - [ ] **Register in clanka-api `/tools`** and `assistant-tool-registry`
 
 ## 🧠 Notes
 - Output: `REPO.json` (agent-consumable) + `REPO.md` (human-readable)
 - Key source files: `detector.ts`, `git.ts`, `structure.ts`, `reporter.ts`, `mcp-server.ts`
-- v0.2 shipped: `--since`, `--compact`, PR/issue counts
+- v0.2 shipped: `--since`, `--compact`, PR/issue counts, `--update`

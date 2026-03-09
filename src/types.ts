@@ -43,6 +43,11 @@ export interface DependenciesInfo {
   notable: string[];
 }
 
+export interface RefreshInfo {
+  hot_paths: string;
+  recent_changes: string;
+}
+
 export interface RepoContext {
   version: string;
   repo: string;
@@ -54,4 +59,5 @@ export interface RepoContext {
   recent_changes: RecentChanges;
   dependencies: DependenciesInfo;
   agents_md: string;
+  refresh?: RefreshInfo;
 }
