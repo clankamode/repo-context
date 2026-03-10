@@ -3,7 +3,9 @@ import { writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildRepoContext, updateRepoContext } from "./context.js";
+import { diffObjects, formatDiff } from "./diff.js";
 import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
+import { safeReadJson } from "./utils.js";
 
 export function usage(): string {
   return [
@@ -13,6 +15,7 @@ export function usage(): string {
     "  --compact           one-paragraph summary",
     "  --since <period>    filter git log (e.g. '7 days ago')",
     "  --update            refresh stale recent_changes and hot_paths only",
+    "  --diff              compare previous and current REPO.json",
     "  --out <file>        write output to file (.json or .md)",
     "  --version           print version",
     "  --help              usage"
@@ -57,9 +60,10 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
 
   const compact = args.includes("--compact");
   const updateOnly = args.includes("--update");
+  const diffMode = args.includes("--diff");
 
   const filtered = args.filter((arg, idx) => {
-    if (["--json", "--md", "--compact", "--help", "--version", "--update"].includes(arg)) return false;
+    if (["--json", "--md", "--compact", "--help", "--version", "--update", "--diff"].includes(arg)) return false;
     if (arg === "--out" || arg === "--since") return false;
     if (idx > 0 && (args[idx - 1] === "--out" || args[idx - 1] === "--since")) return false;
     return true;
@@ -67,6 +71,16 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
 
   const inputPath = filtered[0] ?? ".";
   const repoPath = resolve(inputPath);
+
+  const jsonOnly = args.includes("--json");
+  const mdOnly = args.includes("--md");
+
+  if (diffMode && (compact || jsonOnly || mdOnly || outFile !== null)) {
+    throw new Error("--diff cannot be combined with --json, --md, --compact, or --out");
+  }
+
+  const previousRepoJson = diffMode ? safeReadJson(join(repoPath, "REPO.json")) : null;
+
   const context = updateOnly
     ? updateRepoContext(repoPath, { since })
     : buildRepoContext(repoPath, { since });
@@ -75,9 +89,6 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
     io.write(`${toCompactSummary(context)}\n`);
     return;
   }
-
-  const jsonOnly = args.includes("--json");
-  const mdOnly = args.includes("--md");
 
   const json = toRepoJson(context);
   const md = toRepoMarkdown(context);
@@ -112,9 +123,25 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
     return;
   }
 
-  writeFileSync(join(repoPath, "REPO.json"), json, "utf8");
-  writeFileSync(join(repoPath, "REPO.md"), md, "utf8");
-  io.write(`Generated ${join(repoPath, "REPO.json")} and ${join(repoPath, "REPO.md")}\n`);
+  const repoJsonPath = join(repoPath, "REPO.json");
+  const repoMdPath = join(repoPath, "REPO.md");
+
+  writeFileSync(repoJsonPath, json, "utf8");
+  writeFileSync(repoMdPath, md, "utf8");
+
+  if (diffMode) {
+    const currentRepoJson = JSON.parse(json) as unknown;
+    if (!previousRepoJson) {
+      io.write(`Generated ${repoJsonPath} and ${repoMdPath}\n`);
+      io.write(`No previous REPO.json found at ${repoJsonPath}; baseline created.\n`);
+      return;
+    }
+    const diff = diffObjects(previousRepoJson, currentRepoJson);
+    io.write(`${formatDiff(diff)}\n`);
+    return;
+  }
+
+  io.write(`Generated ${repoJsonPath} and ${repoMdPath}\n`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

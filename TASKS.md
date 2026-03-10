@@ -14,7 +14,7 @@
 
 ## 🟢 Low Priority / Nice to Have
 - [x] **`--update` flag** — refresh only stale fields (recent_changes, hot_paths); skip full scan. Uses cached `REPO.json`, updates `recent_changes` after 1 hour and `hot_paths` after 24 hours, and falls back to a full rebuild if the cache is missing. (completed 2026-03-08)
-- [ ] **`--diff` mode** — compare current `REPO.json` with previous, print what changed
+- [x] **`--diff` mode** — compare current `REPO.json` with previous, print what changed. Added CLI support with safe missing-baseline handling, field-level diff output, tests, and docs. (completed 2026-03-10)
 - [ ] **Register in clanka-api `/tools`** and `assistant-tool-registry`
 
 ## 🧠 Notes
