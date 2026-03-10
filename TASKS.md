@@ -1,5 +1,5 @@
 # TASKS.md — repo-context
-> Last updated: 2026-03-08 | Status: open
+> Last updated: 2026-03-10 | Status: done
 
 ## 🔴 High Priority
 - [x] **Add test suite** — 67 tests across 7 test files covering `detector.ts`, `git.ts`, `structure.ts`, `reporter.ts`. All passing. (verified 2026-03-03)
@@ -15,7 +15,7 @@
 ## 🟢 Low Priority / Nice to Have
 - [x] **`--update` flag** — refresh only stale fields (recent_changes, hot_paths); skip full scan. Uses cached `REPO.json`, updates `recent_changes` after 1 hour and `hot_paths` after 24 hours, and falls back to a full rebuild if the cache is missing. (completed 2026-03-08)
 - [x] **`--diff` mode** — compare current `REPO.json` with previous, print what changed. Added CLI support with safe missing-baseline handling, field-level diff output, tests, and docs. (completed 2026-03-10)
-- [ ] **Register in clanka-api `/tools`** and `assistant-tool-registry`
+- [x] **Register in clanka-api `/tools`** and `assistant-tool-registry` — Added the registry entry, clanka-api `/tools` regression coverage, and coordinating PRs. (completed 2026-03-10)
 
 ## 🧠 Notes
 - Output: `REPO.json` (agent-consumable) + `REPO.md` (human-readable)
