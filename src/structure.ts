@@ -1,13 +1,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { StructureInfo } from "./types.js";
-import { countLinesInFile, listAllFiles, listRepoFiles, safeReadJson } from "./utils.js";
+import { countLinesInFile, listRepoFiles, safeReadJson } from "./utils.js";
 
 const TEST_DIR_NAMES = new Set(["__tests__", "test", "tests", "e2e", "spec"]);
 
 export function analyzeStructure(repoPath: string): StructureInfo {
+  // Use the same visible file set as totals/entry scanning so ignored
+  // dependency trees (e.g. node_modules/**/test) do not look like project test dirs.
   const files = listRepoFiles(repoPath);
-  const allFiles = listAllFiles(repoPath);
   const pkg = safeReadJson(join(repoPath, "package.json"));
 
   const entry_points: string[] = [];
@@ -48,7 +49,7 @@ export function analyzeStructure(repoPath: string): StructureInfo {
   const config_files = configCandidates.filter((c) => existsSync(join(repoPath, c)));
 
   const dirSet = new Set<string>();
-  for (const file of allFiles) {
+  for (const file of files) {
     const parts = file.split("/");
     for (let i = 0; i < parts.length - 1; i += 1) {
       const dirName = parts[i];

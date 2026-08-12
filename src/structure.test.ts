@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { existsSync } from "node:fs";
-import { listRepoFiles, listAllFiles, safeReadJson, countLinesInFile } from "./utils.js";
+import { listRepoFiles, safeReadJson, countLinesInFile } from "./utils.js";
 import { analyzeStructure } from "./structure.js";
 
 vi.mock("node:fs", () => ({ existsSync: vi.fn() }));
 vi.mock("./utils.js", () => ({
   listRepoFiles: vi.fn(),
-  listAllFiles: vi.fn(),
   safeReadJson: vi.fn(),
   countLinesInFile: vi.fn(),
 }));
@@ -15,7 +14,6 @@ describe("analyzeStructure", () => {
   beforeEach(() => {
     vi.mocked(existsSync).mockReturnValue(false);
     vi.mocked(listRepoFiles).mockReturnValue([]);
-    vi.mocked(listAllFiles).mockReturnValue([]);
     vi.mocked(safeReadJson).mockReturnValue(null);
     vi.mocked(countLinesInFile).mockReturnValue(0);
   });
@@ -31,7 +29,7 @@ describe("analyzeStructure", () => {
   });
 
   it("detects test directories at top level", () => {
-    vi.mocked(listAllFiles).mockReturnValue([
+    vi.mocked(listRepoFiles).mockReturnValue([
       "__tests__/foo.test.ts",
       "e2e/login.spec.ts",
     ]);
@@ -43,13 +41,25 @@ describe("analyzeStructure", () => {
   });
 
   it("detects nested test directories", () => {
-    vi.mocked(listAllFiles).mockReturnValue([
+    vi.mocked(listRepoFiles).mockReturnValue([
       "src/tests/bar.test.ts",
     ]);
 
     const result = analyzeStructure("/fake/repo");
 
     expect(result.test_dirs).toContain("src/tests");
+  });
+
+  it("does not invent dependency test dirs when they are not in the visible file set", () => {
+    vi.mocked(listRepoFiles).mockReturnValue([
+      "tests/cli.test.ts",
+      "src/index.ts",
+    ]);
+
+    const result = analyzeStructure("/fake/repo");
+
+    expect(result.test_dirs).toEqual(["tests"]);
+    expect(result.test_dirs.every((dir) => !dir.includes("node_modules"))).toBe(true);
   });
 
   it("detects config files that exist on disk", () => {
@@ -114,7 +124,7 @@ describe("analyzeStructure", () => {
   });
 
   it("returns test_dirs sorted alphabetically", () => {
-    vi.mocked(listAllFiles).mockReturnValue([
+    vi.mocked(listRepoFiles).mockReturnValue([
       "spec/foo.ts",
       "__tests__/bar.ts",
       "e2e/baz.ts",
