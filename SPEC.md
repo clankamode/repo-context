@@ -69,17 +69,24 @@ GitNexus, Axon, mcp-vector-search — all exist, all fragmented, all require set
 ## CLI
 
 ```bash
-# Generate context for current repo
+# Generate context for a local repo path (default: .)
 repo-context
-
-# Generate for a GitHub repo
-repo-context owner/repo
+repo-context ./my-repo
 
 # Output formats
 repo-context --json          # stdout JSON
 repo-context --md            # stdout Markdown
 repo-context --out REPO.md   # write to file
 repo-context --update        # refresh stale recent_changes/hot_paths only
+repo-context --diff          # compare against previous REPO.json
+repo-context --compact       # one-paragraph summary
+```
+
+Planned (not implemented yet):
+
+```bash
+# Remote GitHub shorthand clone/fetch
+repo-context owner/repo
 
 # Watch mode (regenerate on git changes)
 repo-context --watch
@@ -96,21 +103,18 @@ repo-context --watch
 
 ## GitHub Action
 
-```yaml
-- uses: clankamode/repo-context@v1
-  with:
-    output: REPO.json        # commit to repo for agents to find
-    commit: true             # auto-commit if changed
-```
+Planned (not shipped): a reusable Action that writes `REPO.json` on CI. Until then, run the CLI in your own workflow step.
 
 ## MCP Server
 
+Binary: `repo-context-mcp` (stdio). Not a `repo-context --mcp` flag.
+
 ```
 Tools:
-  - get_context(repo?) → full REPO.json
-  - get_stack(repo?) → just the stack section
-  - get_hot_paths(repo?, days?) → hot files
-  - get_conventions(repo?) → conventions
+  - get_context(repo_path?) → full REPO.json
+  - get_stack(repo_path?) → just the stack section
+  - get_hot_paths(repo_path?, days?) → hot files
+  - get_conventions(repo_path?) → conventions
 ```
 
 ## Why This Wins
