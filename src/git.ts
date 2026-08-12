@@ -23,10 +23,12 @@ export function parseHotPathsFromLog(logOutput: string, topN = 10): HotPath[] {
 }
 
 export function getHotPaths(repoPath: string, days = 30): HotPath[] {
+  // Do not use --follow here: it requires a single pathspec and makes whole-repo
+  // hot-path scans fail silently (tryGit swallows stderr → empty "no hot files").
+  // Use a git-recognized relative date; bare "30d" is not a valid --since value.
   const output = tryGit(repoPath, [
     "log",
-    "--follow",
-    `--since=${days}d`,
+    `--since=${days} days ago`,
     "--name-only",
     "--pretty=format:"
   ]);
