@@ -1,11 +1,23 @@
 #!/usr/bin/env node
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildRepoContext, updateRepoContext } from "./context.js";
 import { diffObjects, formatDiff } from "./diff.js";
 import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
 import { safeReadJson } from "./utils.js";
+
+const KNOWN_FLAGS = new Set([
+  "--json",
+  "--md",
+  "--compact",
+  "--help",
+  "--version",
+  "--update",
+  "--diff",
+  "--out",
+  "--since"
+]);
 
 export function usage(): string {
   return [
@@ -26,16 +38,26 @@ export function getVersion(): string {
   return "0.2.0";
 }
 
-interface CliIo {
+export interface CliIo {
   write(text: string): void;
+  writeError(text: string): void;
 }
 
-export function runCli(args = process.argv.slice(2), io: CliIo = {
+const defaultIo: CliIo = {
   write(text: string): void {
     process.stdout.write(text);
+  },
+  writeError(text: string): void {
+    process.stderr.write(text);
   }
-}): void {
+};
 
+function formatCliError(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return String(error);
+}
+
+export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): void {
   if (args.includes("--help")) {
     io.write(`${usage()}\n`);
     return;
@@ -63,14 +85,22 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
   const diffMode = args.includes("--diff");
 
   const filtered = args.filter((arg, idx) => {
-    if (["--json", "--md", "--compact", "--help", "--version", "--update", "--diff"].includes(arg)) return false;
-    if (arg === "--out" || arg === "--since") return false;
+    if (KNOWN_FLAGS.has(arg)) return false;
     if (idx > 0 && (args[idx - 1] === "--out" || args[idx - 1] === "--since")) return false;
     return true;
   });
 
+  const unknownFlag = filtered.find((arg) => arg.startsWith("-"));
+  if (unknownFlag) {
+    throw new Error(`Unknown option: ${unknownFlag}\n\n${usage()}`);
+  }
+
   const inputPath = filtered[0] ?? ".";
   const repoPath = resolve(inputPath);
+
+  if (!existsSync(repoPath)) {
+    throw new Error(`Path not found: ${repoPath}`);
+  }
 
   const jsonOnly = args.includes("--json");
   const mdOnly = args.includes("--md");
@@ -80,6 +110,12 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
   }
 
   const previousRepoJson = diffMode ? safeReadJson(join(repoPath, "REPO.json")) : null;
+
+  if (updateOnly && !existsSync(join(repoPath, "REPO.json"))) {
+    io.writeError(
+      `Warning: no REPO.json at ${join(repoPath, "REPO.json")}; performing full rebuild.\n`
+    );
+  }
 
   const context = updateOnly
     ? updateRepoContext(repoPath, { since })
@@ -144,6 +180,16 @@ export function runCli(args = process.argv.slice(2), io: CliIo = {
   io.write(`Generated ${repoJsonPath} and ${repoMdPath}\n`);
 }
 
+export function main(args = process.argv.slice(2), io: CliIo = defaultIo): number {
+  try {
+    runCli(args, io);
+    return 0;
+  } catch (error) {
+    io.writeError(`Error: ${formatCliError(error)}\n`);
+    return 1;
+  }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  runCli();
+  process.exitCode = main();
 }
