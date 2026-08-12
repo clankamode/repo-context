@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { buildRepoContext, updateRepoContext } from "./context.js";
 import { toCompactSummary, toRepoJson, toRepoMarkdown } from "./reporter.js";
-import { runCli, usage } from "./index.js";
+import { main, runCli, usage } from "./index.js";
 import type { RepoContext } from "./types.js";
 
 vi.mock("node:fs", () => ({
-  writeFileSync: vi.fn()
+  writeFileSync: vi.fn(),
+  existsSync: vi.fn()
 }));
 
 vi.mock("./context.js", () => ({
@@ -67,12 +68,30 @@ const context: RepoContext = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(existsSync).mockReturnValue(true);
   vi.mocked(buildRepoContext).mockReturnValue(context);
   vi.mocked(updateRepoContext).mockReturnValue(context);
   vi.mocked(toCompactSummary).mockReturnValue("compact summary");
   vi.mocked(toRepoJson).mockReturnValue("{\"repo\":\"repo-context\"}\n");
   vi.mocked(toRepoMarkdown).mockReturnValue("# Repository Context\n");
 });
+
+function makeIo() {
+  const output: string[] = [];
+  const errors: string[] = [];
+  return {
+    output,
+    errors,
+    io: {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    }
+  };
+}
 
 describe("usage", () => {
   it("documents the --update flag", () => {
@@ -82,9 +101,9 @@ describe("usage", () => {
 
 describe("runCli", () => {
   it("keeps default behavior and uses full build without --update", () => {
-    const output: string[] = [];
+    const { output, io } = makeIo();
 
-    runCli(["."], { write: (text) => output.push(text) });
+    runCli(["."], io);
 
     expect(buildRepoContext).toHaveBeenCalledOnce();
     expect(updateRepoContext).not.toHaveBeenCalled();
@@ -93,11 +112,9 @@ describe("runCli", () => {
   });
 
   it("uses incremental update mode when --update is passed", () => {
-    const output: string[] = [];
+    const { output, io } = makeIo();
 
-    runCli(["./repo", "--update", "--since", "7 days ago"], {
-      write: (text) => output.push(text)
-    });
+    runCli(["./repo", "--update", "--since", "7 days ago"], io);
 
     expect(updateRepoContext).toHaveBeenCalledWith(expect.stringMatching(/repo$/), {
       since: "7 days ago"
@@ -108,13 +125,47 @@ describe("runCli", () => {
   });
 
   it("still supports compact output in update mode", () => {
-    const output: string[] = [];
+    const { output, io } = makeIo();
 
-    runCli(["--update", "--compact"], { write: (text) => output.push(text) });
+    runCli(["--update", "--compact"], io);
 
     expect(updateRepoContext).toHaveBeenCalledOnce();
     expect(toCompactSummary).toHaveBeenCalledWith(context);
     expect(writeFileSync).not.toHaveBeenCalled();
     expect(output).toEqual(["compact summary\n"]);
+  });
+
+  it("warns on stderr when --update has no REPO.json baseline", () => {
+    vi.mocked(existsSync).mockImplementation((path) => !String(path).endsWith("REPO.json"));
+    const { errors, io } = makeIo();
+
+    runCli(["./repo", "--update"], io);
+
+    expect(errors.some((line) => line.includes("performing full rebuild"))).toBe(true);
+    expect(updateRepoContext).toHaveBeenCalledOnce();
+  });
+
+  it("rejects unknown options instead of treating them as paths", () => {
+    expect(() => runCli(["--watch"], makeIo().io)).toThrow(/Unknown option: --watch/);
+  });
+
+  it("rejects missing paths with a clear error", () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+    expect(() => runCli(["./missing"], makeIo().io)).toThrow(/Path not found/);
+  });
+});
+
+describe("main", () => {
+  it("returns exit code 1 and prints Error: for failures", () => {
+    const { errors, io } = makeIo();
+    const code = main(["--out"], io);
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/^Error: --out requires a file path/);
+  });
+
+  it("returns exit code 0 on success", () => {
+    const { io } = makeIo();
+    expect(main(["--help"], io)).toBe(0);
   });
 });

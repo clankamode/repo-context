@@ -45,6 +45,9 @@ describe("runCli --diff", () => {
     runCli([repo, "--diff"], {
       write(text: string): void {
         output.push(text);
+      },
+      writeError(): void {
+        /* unused */
       }
     });
 
@@ -60,6 +63,9 @@ describe("runCli --diff", () => {
     runCli([repo, "--diff"], {
       write(text: string): void {
         output.push(text);
+      },
+      writeError(): void {
+        /* unused */
       }
     });
 
