@@ -94,6 +94,28 @@ describe("getHotPaths", () => {
     expect(result).toEqual([]);
   });
 
+  it("queries git log without --follow and with a valid relative --since", () => {
+    getHotPaths("/fake/repo", 14);
+
+    expect(tryGit).toHaveBeenCalledWith("/fake/repo", [
+      "log",
+      "--since=14 days ago",
+      "--name-only",
+      "--pretty=format:"
+    ]);
+  });
+
+  it("defaults the lookback window to 30 days", () => {
+    getHotPaths("/fake/repo");
+
+    expect(tryGit).toHaveBeenCalledWith("/fake/repo", [
+      "log",
+      "--since=30 days ago",
+      "--name-only",
+      "--pretty=format:"
+    ]);
+  });
+
   it("returns parsed hot paths from git log output", () => {
     vi.mocked(tryGit).mockReturnValue(
       "src/index.ts\nsrc/index.ts\nsrc/utils.ts"
