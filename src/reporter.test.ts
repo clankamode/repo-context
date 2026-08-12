@@ -123,10 +123,11 @@ describe("toRepoMarkdown", () => {
     expect(result).toContain("src/utils.ts (5 commits/30d)");
   });
 
-  it("shows None when hot_paths is empty", () => {
+  it("shows an explicit empty-window message when hot_paths is empty", () => {
     const result = toRepoMarkdown({ ...baseContext, hot_paths: [] });
 
-    expect(result).toContain("- None");
+    expect(result).toContain("- None detected in lookback window");
+    expect(result).not.toContain("- None\n");
   });
 
   it("includes open PRs and issues when present", () => {
@@ -136,7 +137,7 @@ describe("toRepoMarkdown", () => {
     expect(result).toContain("Open Issues**: 7");
   });
 
-  it("omits PR and issue lines when null", () => {
+  it("marks PR and issue counts unavailable when null", () => {
     const ctx: RepoContext = {
       ...baseContext,
       recent_changes: {
@@ -148,8 +149,26 @@ describe("toRepoMarkdown", () => {
 
     const result = toRepoMarkdown(ctx);
 
-    expect(result).not.toContain("Open PRs");
-    expect(result).not.toContain("Open Issues");
+    expect(result).toContain("Open PRs**: Unavailable (needs gh auth)");
+    expect(result).toContain("Open Issues**: Unavailable (needs gh auth)");
+  });
+
+  it("marks blank recent-change fields unavailable", () => {
+    const ctx: RepoContext = {
+      ...baseContext,
+      recent_changes: {
+        ...baseContext.recent_changes,
+        last_commit: "",
+        last_commit_sha: "  ",
+        last_commit_date: "",
+      },
+    };
+
+    const result = toRepoMarkdown(ctx);
+
+    expect(result).toContain("Last Commit**: Unavailable");
+    expect(result).toContain("SHA**: Unavailable");
+    expect(result).toContain("Date**: Unavailable");
   });
 
   it("shows Unknown for null stack fields", () => {
@@ -207,10 +226,10 @@ describe("toCompactSummary", () => {
     expect(result).toContain("src/index.ts");
   });
 
-  it("falls back to N/A for hottest file when hot_paths is empty", () => {
+  it("falls back to none detected for hottest file when hot_paths is empty", () => {
     const result = toCompactSummary({ ...baseContext, hot_paths: [] });
 
-    expect(result).toContain("N/A");
+    expect(result).toContain("Hottest file: none detected");
   });
 
   it("includes open PR and issue counts", () => {
@@ -220,7 +239,7 @@ describe("toCompactSummary", () => {
     expect(result).toContain("7 open issues");
   });
 
-  it("omits PR and issue parts when null", () => {
+  it("states when PR and issue counts are unavailable", () => {
     const ctx: RepoContext = {
       ...baseContext,
       recent_changes: {
@@ -232,8 +251,8 @@ describe("toCompactSummary", () => {
 
     const result = toCompactSummary(ctx);
 
-    expect(result).not.toContain("open PRs");
-    expect(result).not.toContain("open issues");
+    expect(result).toContain("open PR/issue counts unavailable");
+    expect(result).not.toContain("open PRs,");
   });
 
   it("includes active branch count", () => {
