@@ -48,13 +48,25 @@ export function listRepoFiles(repoPath: string): string[] {
   return listAllFiles(repoPath);
 }
 
+const SKIP_WALK_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "vendor",
+  ".venv",
+  "venv",
+  "__pycache__",
+  ".tox",
+  ".next",
+  "coverage"
+]);
+
 export function listAllFiles(repoPath: string): string[] {
   const files: string[] = [];
 
   const walk = (dir: string): void => {
     const entries = readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name === ".git") continue;
+      if (entry.isDirectory() && SKIP_WALK_DIRS.has(entry.name)) continue;
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         walk(fullPath);
