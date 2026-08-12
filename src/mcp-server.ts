@@ -8,7 +8,7 @@ import { getConventions, getHotPaths } from "./git.js";
 const server = new Server(
   {
     name: "repo-context",
-    version: "0.1.0"
+    version: "0.2.0"
   },
   {
     capabilities: {
@@ -21,42 +21,42 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name: "get_context",
-      description: "Return complete repo context",
+      description: "Return complete repo context for a local git repo path (default: .)",
       inputSchema: {
         type: "object",
         properties: {
-          repo_path: { type: "string" }
+          repo_path: { type: "string", description: "Local filesystem path to a git repo" }
         }
       }
     },
     {
       name: "get_stack",
-      description: "Return stack section only",
+      description: "Return detected stack section only for a local git repo path (default: .)",
       inputSchema: {
         type: "object",
         properties: {
-          repo_path: { type: "string" }
+          repo_path: { type: "string", description: "Local filesystem path to a git repo" }
         }
       }
     },
     {
       name: "get_hot_paths",
-      description: "Return hot files",
+      description: "Return frequently changed files for a local git repo path (default lookback: 30 days)",
       inputSchema: {
         type: "object",
         properties: {
-          repo_path: { type: "string" },
-          days: { type: "number" }
+          repo_path: { type: "string", description: "Local filesystem path to a git repo" },
+          days: { type: "number", description: "Lookback window in days (default 30)" }
         }
       }
     },
     {
       name: "get_conventions",
-      description: "Return conventions section",
+      description: "Return commit-convention heuristics for a local git repo path (default: .)",
       inputSchema: {
         type: "object",
         properties: {
-          repo_path: { type: "string" }
+          repo_path: { type: "string", description: "Local filesystem path to a git repo" }
         }
       }
     }

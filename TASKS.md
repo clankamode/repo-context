@@ -4,7 +4,7 @@
 ## 🔴 High Priority
 - [x] **Add test suite** — 67 tests across 7 test files covering `detector.ts`, `git.ts`, `structure.ts`, `reporter.ts`. All passing. (verified 2026-03-03)
 - [x] **Wire up CLI entry point** — `node dist/index.js [path] [flags]` works end-to-end: reads repo, writes `REPO.json` + `REPO.md`, exits 0. Flags: `--json`, `--md`, `--compact`, `--since`, `--out`. (verified 2026-03-03)
-- [x] **MCP server — verify tools** — `dist/mcp-server.js` exists and responds. `--mcp` flag starts stdio server. (verified 2026-03-03)
+- [x] **MCP server — verify tools** — `dist/mcp-server.js` / `repo-context-mcp` stdio server responds with get_context/get_stack/get_hot_paths/get_conventions. (verified 2026-03-03; no `--mcp` CLI flag)
 
 ## 🟡 Medium Priority
 - [x] **`--since` flag for hot paths** — `--since <period>` supported (e.g. `'7 days ago'`). (landed in v0.2)
