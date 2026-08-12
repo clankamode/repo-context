@@ -62,7 +62,7 @@ describe("toRepoMarkdown", () => {
     expect(md).toContain("**Open Issues**: 7");
   });
 
-  it("omits PR/issue lines when null", () => {
+  it("marks PR/issue counts unavailable when null", () => {
     const md = toRepoMarkdown(makeContext({
       recent_changes: {
         last_commit: "feat: add x",
@@ -73,8 +73,8 @@ describe("toRepoMarkdown", () => {
         open_issues: null
       }
     }));
-    expect(md).not.toContain("Open PRs");
-    expect(md).not.toContain("Open Issues");
+    expect(md).toContain("Open PRs**: Unavailable (needs gh auth)");
+    expect(md).toContain("Open Issues**: Unavailable (needs gh auth)");
   });
 });
 
@@ -91,7 +91,7 @@ describe("toCompactSummary", () => {
     expect(summary).toContain("7 open issues");
   });
 
-  it("omits PR/issue info when null", () => {
+  it("states when PR/issue info is unavailable", () => {
     const summary = toCompactSummary(makeContext({
       recent_changes: {
         last_commit: "feat: add x",
@@ -102,7 +102,6 @@ describe("toCompactSummary", () => {
         open_issues: null
       }
     }));
-    expect(summary).not.toContain("open PRs");
-    expect(summary).not.toContain("open issues");
+    expect(summary).toContain("open PR/issue counts unavailable");
   });
 });

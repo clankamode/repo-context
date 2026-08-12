@@ -1,5 +1,15 @@
 import { RepoContext } from "./types.js";
 
+const UNAVAILABLE = "Unavailable";
+
+function displayOrUnavailable(value: string): string {
+  return value.trim() ? value : UNAVAILABLE;
+}
+
+function formatNullableCount(value: number | null): string {
+  return value === null ? `${UNAVAILABLE} (needs gh auth)` : String(value);
+}
+
 export function toRepoJson(context: RepoContext): string {
   return `${JSON.stringify(context, null, 2)}\n`;
 }
@@ -7,15 +17,7 @@ export function toRepoJson(context: RepoContext): string {
 export function toRepoMarkdown(context: RepoContext): string {
   const hotPaths = context.hot_paths.length
     ? context.hot_paths.map((p) => `- ${p.file} (${p.commits_30d} commits/30d)`).join("\n")
-    : "- None";
-
-  const prIssue: string[] = [];
-  if (context.recent_changes.open_prs !== null) {
-    prIssue.push(`- **Open PRs**: ${context.recent_changes.open_prs}`);
-  }
-  if (context.recent_changes.open_issues !== null) {
-    prIssue.push(`- **Open Issues**: ${context.recent_changes.open_issues}`);
-  }
+    : "- None detected in lookback window";
 
   const lines = [
     "# Repository Context",
@@ -47,11 +49,12 @@ export function toRepoMarkdown(context: RepoContext): string {
     hotPaths,
     "",
     "## Recent Changes",
-    `- **Last Commit**: ${context.recent_changes.last_commit}`,
-    `- **SHA**: ${context.recent_changes.last_commit_sha}`,
-    `- **Date**: ${context.recent_changes.last_commit_date}`,
+    `- **Last Commit**: ${displayOrUnavailable(context.recent_changes.last_commit)}`,
+    `- **SHA**: ${displayOrUnavailable(context.recent_changes.last_commit_sha)}`,
+    `- **Date**: ${displayOrUnavailable(context.recent_changes.last_commit_date)}`,
     `- **Active Branches**: ${context.recent_changes.active_branches.join(", ") || "None"}`,
-    ...prIssue,
+    `- **Open PRs**: ${formatNullableCount(context.recent_changes.open_prs)}`,
+    `- **Open Issues**: ${formatNullableCount(context.recent_changes.open_issues)}`,
     "",
     "## Dependencies",
     `- **Direct**: ${context.dependencies.direct}`,
@@ -72,22 +75,27 @@ export function toCompactSummary(context: RepoContext): string {
     : "";
   const files = context.structure.total_files;
   const lines = context.structure.total_lines;
-  const hotFile = context.hot_paths[0]?.file ?? "N/A";
-  const lastCommit = context.recent_changes.last_commit || "N/A";
+  const hotFile = context.hot_paths[0]?.file ?? "none detected";
+  const lastCommit = context.recent_changes.last_commit.trim() || UNAVAILABLE;
   const branches = context.recent_changes.active_branches.length;
 
-  const prPart = context.recent_changes.open_prs !== null
-    ? `, ${context.recent_changes.open_prs} open PRs`
-    : "";
-  const issuePart = context.recent_changes.open_issues !== null
-    ? `, ${context.recent_changes.open_issues} open issues`
-    : "";
+  const { open_prs: openPrs, open_issues: openIssues } = context.recent_changes;
+  let countsPart = "";
+  if (openPrs !== null && openIssues !== null) {
+    countsPart = `, ${openPrs} open PRs, ${openIssues} open issues`;
+  } else if (openPrs !== null) {
+    countsPart = `, ${openPrs} open PRs, open issues unavailable`;
+  } else if (openIssues !== null) {
+    countsPart = `, open PRs unavailable, ${openIssues} open issues`;
+  } else {
+    countsPart = ", open PR/issue counts unavailable";
+  }
 
   return (
     `${context.repo} is a ${langs}${frameworks} project` +
     ` (${files} files, ${lines} lines).` +
     ` Hottest file: ${hotFile}.` +
     ` Last commit: "${lastCommit}".` +
-    ` ${branches} active branch(es)${prPart}${issuePart}.`
+    ` ${branches} active branch(es)${countsPart}.`
   );
 }
