@@ -21,7 +21,8 @@ vi.mock("./structure.js", () => ({
 }));
 
 vi.mock("./utils.js", () => ({
-  safeReadJson: vi.fn()
+  safeReadJson: vi.fn(),
+  assertGitRepo: vi.fn()
 }));
 
 const stack: StackInfo = {

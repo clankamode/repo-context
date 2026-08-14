@@ -3,7 +3,7 @@ import { detectStack } from "./detector.js";
 import { getConventions, getHotPaths, getRecentChanges } from "./git.js";
 import { analyzeStructure } from "./structure.js";
 import { RefreshInfo, RepoContext } from "./types.js";
-import { safeReadJson } from "./utils.js";
+import { assertGitRepo, safeReadJson } from "./utils.js";
 
 const NOTABLE_DEPS = ["next", "react", "supabase-js", "vitest", "jest", "express", "fastapi", "django", "vue", "svelte"];
 export const RECENT_CHANGES_MAX_AGE_MS = 60 * 60 * 1000;
@@ -114,6 +114,7 @@ function isStale(timestamp: string, maxAgeMs: number, now: Date): boolean {
 export function buildRepoContext(repoPathArg: string, opts: BuildOptions = {}): RepoContext {
   const { hotDays = 30, since, now = new Date() } = opts;
   const repoPath = resolve(repoPathArg);
+  assertGitRepo(repoPath);
   const stack = detectStack(repoPath);
   const structure = analyzeStructure(repoPath);
   const hot_paths = getHotPaths(repoPath, hotDays);
@@ -159,6 +160,7 @@ export function updateRepoContext(repoPathArg: string, opts: UpdateOptions = {})
     hotPathsMaxAgeMs = HOT_PATHS_MAX_AGE_MS
   } = opts;
   const repoPath = resolve(repoPathArg);
+  assertGitRepo(repoPath);
   const cached = readCachedRepoContext(repoPath);
 
   if (!cached) {

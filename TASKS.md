@@ -7,7 +7,7 @@
 - [x] **MCP server — verify tools** — `dist/mcp-server.js` / `repo-context-mcp` stdio server responds with get_context/get_stack/get_hot_paths/get_conventions. (verified 2026-03-03; no `--mcp` CLI flag)
 
 ## 🟡 Medium Priority
-- [x] **`--since` flag for hot paths** — `--since <period>` supported (e.g. `'7 days ago'`). (landed in v0.2)
+- [x] **`--since` flag** — filters `recent_changes` / conventions lookback (e.g. `'7 days ago'`); hot_paths keep their own day window. (landed in v0.2)
 - [x] **`--compact` output mode** — `--compact` emits a one-paragraph summary. (landed in v0.2)
 - [x] **GitHub remote detection** — when `gh` is available, fetch real `open_prs` and `open_issues` counts via GitHub remote + GraphQL `totalCount`; now includes `gh repo view` fallback when remote parsing fails, and still falls back to `null` when `gh`/auth/network is unavailable. (completed 2026-03-08)
 - [x] **Add CI workflow** — lint + build + test on push. Added `.github/workflows/ci.yml`. (completed 2026-03-03)

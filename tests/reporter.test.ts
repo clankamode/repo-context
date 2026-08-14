@@ -73,8 +73,8 @@ describe("toRepoMarkdown", () => {
         open_issues: null
       }
     }));
-    expect(md).toContain("Open PRs**: Unavailable (needs gh auth)");
-    expect(md).toContain("Open Issues**: Unavailable (needs gh auth)");
+    expect(md).toContain("Open PRs**: Unavailable (GitHub remote or gh required)");
+    expect(md).toContain("Open Issues**: Unavailable (GitHub remote or gh required)");
   });
 });
 
