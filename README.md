@@ -8,19 +8,22 @@ Generate `REPO.json` (agent-consumable) and `REPO.md` (human-readable) for a loc
 repo-context [path]
 ```
 
-`path` must be a local directory. Remote `owner/repo` shorthand is not supported yet.
+`path` must be a local git work tree. Remote `owner/repo` shorthand is not supported yet.
+Non-git directories fail with a clear error instead of writing empty context.
 
 ### Common flags
 
 - `--json` stdout JSON only
 - `--md` stdout Markdown only
 - `--compact` one-paragraph summary
-- `--since <period>` filter git history (e.g. `7 days ago`)
+- `--since <period>` filter recent_changes / conventions lookback (e.g. `7 days ago`); hot_paths keep their own window
 - `--update` refresh stale `recent_changes` and `hot_paths` from cached `REPO.json`
 - `--diff` regenerate context and print what changed vs previous `REPO.json`
 - `--out <file>` write to `.json` or `.md`
 
-Open PR/issue counts require a detectable GitHub remote and a working `gh` auth session. When unavailable, JSON keeps `null` and human output marks those counts as unavailable.
+Open PR/issue counts require a detectable GitHub remote and a working `gh` session.
+When unavailable (no GitHub remote, missing `gh`, auth, or network), JSON keeps `null`
+and human output marks those counts as unavailable — without blaming auth alone.
 
 ### MCP server
 

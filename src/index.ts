@@ -25,7 +25,7 @@ export function usage(): string {
     "  --json              stdout JSON only",
     "  --md                stdout Markdown only",
     "  --compact           one-paragraph summary",
-    "  --since <period>    filter git log (e.g. '7 days ago')",
+    "  --since <period>    filter recent_changes lookback (e.g. '7 days ago')",
     "  --update            refresh stale recent_changes and hot_paths only",
     "  --diff              compare previous and current REPO.json",
     "  --out <file>        write output to file (.json or .md)",

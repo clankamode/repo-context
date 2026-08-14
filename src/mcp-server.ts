@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { buildRepoContext } from "./context.js";
 import { getConventions, getHotPaths } from "./git.js";
+import { assertGitRepo } from "./utils.js";
 
 const server = new Server(
   {
@@ -67,31 +68,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = (request.params.arguments ?? {}) as { repo_path?: string; days?: number };
   const repoPath = args.repo_path ?? ".";
 
-  let data: unknown;
-  switch (request.params.name) {
-    case "get_context":
-      data = buildRepoContext(repoPath);
-      break;
-    case "get_stack":
-      data = buildRepoContext(repoPath).stack;
-      break;
-    case "get_hot_paths":
-      data = getHotPaths(repoPath, args.days ?? 30);
-      break;
-    case "get_conventions":
-      data = getConventions(repoPath);
-      break;
-    default:
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Unknown tool: ${request.params.name}` }]
-      };
-  }
+  try {
+    assertGitRepo(repoPath);
 
-  return {
-    content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    structuredContent: { result: data as unknown }
-  };
+    let data: unknown;
+    switch (request.params.name) {
+      case "get_context":
+        data = buildRepoContext(repoPath);
+        break;
+      case "get_stack":
+        data = buildRepoContext(repoPath).stack;
+        break;
+      case "get_hot_paths":
+        data = getHotPaths(repoPath, args.days ?? 30);
+        break;
+      case "get_conventions":
+        data = getConventions(repoPath);
+        break;
+      default:
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Unknown tool: ${request.params.name}` }]
+        };
+    }
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { result: data as unknown }
+    };
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : String(error);
+    return {
+      isError: true,
+      content: [{ type: "text", text: message }]
+    };
+  }
 });
 
 async function main(): Promise<void> {

@@ -135,7 +135,7 @@ Tools:
 | Test framework | package.json deps (vitest/jest/mocha) |
 | CI | .github/workflows/*.yml, .gitlab-ci.yml, .circleci |
 | Conventions | git log patterns, file naming analysis |
-| Hot paths | `git log --follow --since=30d` per file |
+| Hot paths | `git log --since=<N> days ago --name-only` (whole-repo; not `--follow`) |
 | Import alias | tsconfig.json paths, next.config.ts |
 | Branch pattern | `git branch -r` analysis |
 

@@ -149,8 +149,8 @@ describe("toRepoMarkdown", () => {
 
     const result = toRepoMarkdown(ctx);
 
-    expect(result).toContain("Open PRs**: Unavailable (needs gh auth)");
-    expect(result).toContain("Open Issues**: Unavailable (needs gh auth)");
+    expect(result).toContain("Open PRs**: Unavailable (GitHub remote or gh required)");
+    expect(result).toContain("Open Issues**: Unavailable (GitHub remote or gh required)");
   });
 
   it("marks blank recent-change fields unavailable", () => {

@@ -7,7 +7,9 @@ function displayOrUnavailable(value: string): string {
 }
 
 function formatNullableCount(value: number | null): string {
-  return value === null ? `${UNAVAILABLE} (needs gh auth)` : String(value);
+  // null covers missing GitHub remote, missing gh, auth failure, or network errors —
+  // do not blame "gh auth" alone.
+  return value === null ? `${UNAVAILABLE} (GitHub remote or gh required)` : String(value);
 }
 
 export function toRepoJson(context: RepoContext): string {

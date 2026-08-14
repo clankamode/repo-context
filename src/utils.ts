@@ -36,6 +36,16 @@ export function tryGit(repoPath: string, args: string[]): string {
   }
 }
 
+export function isGitRepo(repoPath: string): boolean {
+  return tryGit(repoPath, ["rev-parse", "--is-inside-work-tree"]) === "true";
+}
+
+export function assertGitRepo(repoPath: string): void {
+  if (!isGitRepo(repoPath)) {
+    throw new Error(`Not a git repository: ${repoPath}`);
+  }
+}
+
 export function listGitVisibleFiles(repoPath: string): string[] {
   const output = tryGit(repoPath, ["ls-files", "--cached", "--others", "--exclude-standard"]);
   if (!output) return [];
