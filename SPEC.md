@@ -23,6 +23,7 @@ GitNexus, Axon, mcp-vector-search — all exist, all fragmented, all require set
 {
   "version": "1.0",
   "repo": "owner/repo",
+  "default_branch": "main",
   "generated": "2026-02-25T15:00:00Z",
   "stack": {
     "languages": ["TypeScript", "CSS"],
@@ -74,7 +75,8 @@ repo-context
 repo-context ./my-repo
 
 # Output formats
-repo-context --json          # stdout JSON
+repo-context --agent         # agent entrypoint: one compact JSON object on stdout
+repo-context --json          # stdout pretty JSON (same payload as --agent)
 repo-context --md            # stdout Markdown
 repo-context --out REPO.md   # write to file
 repo-context --update        # refresh stale recent_changes/hot_paths only

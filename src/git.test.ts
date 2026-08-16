@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { tryGit, tryExec } from "./utils.js";
-import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug } from "./git.js";
+import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug, getRecentChanges, getDefaultBranch, resolveRepoName } from "./git.js";
 
 vi.mock("./utils.js", () => ({
   tryGit: vi.fn(),
@@ -259,5 +259,88 @@ describe("GitHub remote + open counts", () => {
 
     expect(getOpenPrCount("/fake/repo")).toBeNull();
     expect(getOpenIssueCount("/fake/repo")).toBeNull();
+  });
+
+  it("fail-closed: getRecentChanges keeps null PR/issue counts (never invents 0)", () => {
+    vi.mocked(tryGit).mockImplementation((_path, args) => {
+      if (args[0] === "log") return "feat: ship|abc123|2026-08-16";
+      if (args[0] === "branch") return "  origin/feat/x\n";
+      if (args[0] === "remote") {
+        return "origin https://github.com/octocat/hello-world.git (fetch)";
+      }
+      return "";
+    });
+    vi.mocked(tryExec).mockReturnValue(null);
+
+    const result = getRecentChanges("/fake/repo");
+
+    expect(result.open_prs).toBeNull();
+    expect(result.open_issues).toBeNull();
+    expect(result.open_prs).not.toBe(0);
+    expect(result.open_issues).not.toBe(0);
+    expect(result.last_commit).toBe("feat: ship");
+  });
+
+  it("fail-closed: null counts when there is no GitHub remote and no gh", () => {
+    vi.mocked(tryGit).mockImplementation((_path, args) => {
+      if (args[0] === "log") return "chore: local|def456|2026-08-16";
+      if (args[0] === "branch") return "";
+      if (args[0] === "remote") return "origin https://gitlab.com/org/proj.git (fetch)";
+      return "";
+    });
+    vi.mocked(tryExec).mockReturnValue(null);
+
+    const result = getRecentChanges("/fake/repo");
+    expect(result.open_prs).toBeNull();
+    expect(result.open_issues).toBeNull();
+  });
+
+  it("returns null for non-numeric gh output instead of coercing to 0", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://github.com/octocat/hello-world.git (fetch)");
+    vi.mocked(tryExec).mockReturnValue("null");
+
+    expect(getOpenPrCount("/fake/repo")).toBeNull();
+    expect(getOpenIssueCount("/fake/repo")).toBeNull();
+  });
+});
+
+describe("getDefaultBranch", () => {
+  it("prefers origin/HEAD symbolic ref", () => {
+    vi.mocked(tryGit).mockImplementation((_path, args) => {
+      if (args[0] === "symbolic-ref") return "origin/main";
+      return "";
+    });
+
+    expect(getDefaultBranch("/fake/repo")).toBe("main");
+  });
+
+  it("falls back to local main/master when origin/HEAD is missing", () => {
+    vi.mocked(tryGit).mockImplementation((_path, args) => {
+      if (args[0] === "symbolic-ref") return "";
+      if (args[0] === "rev-parse" && args.includes("refs/heads/main")) return "abc123";
+      return "";
+    });
+
+    expect(getDefaultBranch("/fake/repo")).toBe("main");
+  });
+
+  it("returns null when branch cannot be determined (does not invent a name)", () => {
+    vi.mocked(tryGit).mockReturnValue("");
+    expect(getDefaultBranch("/fake/repo")).toBeNull();
+  });
+});
+
+describe("resolveRepoName", () => {
+  it("prefers GitHub owner/repo from remotes", () => {
+    vi.mocked(tryGit).mockReturnValue(
+      "origin https://github.com/octocat/hello-world.git (fetch)"
+    );
+    expect(resolveRepoName("/tmp/hello-world")).toBe("octocat/hello-world");
+  });
+
+  it("falls back to directory basename when no GitHub remote", () => {
+    vi.mocked(tryGit).mockReturnValue("origin https://gitlab.com/org/proj.git (fetch)");
+    vi.mocked(tryExec).mockReturnValue(null);
+    expect(resolveRepoName("/tmp/my-local-clone")).toBe("my-local-clone");
   });
 });

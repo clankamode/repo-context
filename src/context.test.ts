@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { detectStack } from "./detector.js";
-import { getConventions, getHotPaths, getRecentChanges } from "./git.js";
+import { getConventions, getDefaultBranch, getHotPaths, getRecentChanges, resolveRepoName } from "./git.js";
 import { analyzeStructure } from "./structure.js";
 import { buildRepoContext, HOT_PATHS_MAX_AGE_MS, RECENT_CHANGES_MAX_AGE_MS, updateRepoContext } from "./context.js";
 import type { RepoContext, StackInfo, StructureInfo, ConventionsInfo, HotPath, RecentChanges } from "./types.js";
@@ -13,7 +13,9 @@ vi.mock("./detector.js", () => ({
 vi.mock("./git.js", () => ({
   getConventions: vi.fn(),
   getHotPaths: vi.fn(),
-  getRecentChanges: vi.fn()
+  getRecentChanges: vi.fn(),
+  getDefaultBranch: vi.fn(),
+  resolveRepoName: vi.fn()
 }));
 
 vi.mock("./structure.js", () => ({
@@ -62,6 +64,7 @@ function makeCachedContext(overrides: Partial<RepoContext> = {}): RepoContext {
   return {
     version: "1.0",
     repo: "repo-context",
+    default_branch: "main",
     generated: "2026-03-08T10:00:00.000Z",
     stack,
     structure,
@@ -93,6 +96,8 @@ beforeEach(() => {
   vi.mocked(getConventions).mockReturnValue(conventions);
   vi.mocked(getHotPaths).mockReturnValue(hotPaths);
   vi.mocked(getRecentChanges).mockReturnValue(recentChanges);
+  vi.mocked(getDefaultBranch).mockReturnValue("main");
+  vi.mocked(resolveRepoName).mockReturnValue("repo-context");
   vi.mocked(safeReadJson).mockReturnValue({
     dependencies: { react: "^19.0.0" },
     devDependencies: { vitest: "^3.0.0" }
@@ -106,6 +111,8 @@ describe("buildRepoContext", () => {
     const result = buildRepoContext("/fake/repo", { now });
 
     expect(result.generated).toBe("2026-03-08T10:00:00.000Z");
+    expect(result.default_branch).toBe("main");
+    expect(result.repo).toBe("repo-context");
     expect(result.refresh).toEqual({
       hot_paths: "2026-03-08T10:00:00.000Z",
       recent_changes: "2026-03-08T10:00:00.000Z"

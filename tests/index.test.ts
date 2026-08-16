@@ -87,7 +87,9 @@ describe("runCli --diff", () => {
     const repo = makeRepo();
 
     expect(() => runCli([repo, "--diff", "--json"]))
-      .toThrow("--diff cannot be combined with --json, --md, --compact, or --out");
+      .toThrow("--diff cannot be combined with --json, --agent, --md, --compact, or --out");
+    expect(() => runCli([repo, "--diff", "--agent"]))
+      .toThrow("--diff cannot be combined with --json, --agent, --md, --compact, or --out");
   });
 });
 
@@ -114,5 +116,56 @@ describe("non-git paths", () => {
     expect(code).toBe(1);
     expect(errors.join("")).toMatch(/Error: Not a git repository/);
     expect(output.join("")).not.toContain("Hottest file");
+  });
+
+  it("CLI --agent also fails closed on non-git paths", () => {
+    const dir = makeNonGitDir();
+    const errors: string[] = [];
+    const output: string[] = [];
+
+    const code = main([dir, "--agent"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/Error: Not a git repository/);
+    expect(output.join("")).toBe("");
+  });
+});
+
+describe("agent JSON entrypoint", () => {
+  it("--agent prints one compact JSON object with null GitHub counts when unavailable", () => {
+    const repo = makeRepo();
+    const output: string[] = [];
+
+    const code = main([repo, "--agent"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(): void {
+        /* unused */
+      }
+    });
+
+    expect(code).toBe(0);
+    const printed = output.join("");
+    expect(printed.trimEnd()).not.toContain("\n");
+    const parsed = JSON.parse(printed) as {
+      repo: string;
+      default_branch: string | null;
+      recent_changes: { open_prs: number | null; open_issues: number | null };
+      hot_paths: unknown[];
+      conventions: unknown;
+    };
+    expect(parsed.default_branch).toBe("main");
+    expect(parsed.recent_changes.open_prs).toBeNull();
+    expect(parsed.recent_changes.open_issues).toBeNull();
+    expect(Array.isArray(parsed.hot_paths)).toBe(true);
+    expect(parsed.conventions).toBeTruthy();
   });
 });

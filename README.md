@@ -11,9 +11,24 @@ repo-context [path]
 `path` must be a local git work tree. Remote `owner/repo` shorthand is not supported yet.
 Non-git directories fail with a clear error instead of writing empty context.
 
+### Agent entrypoint
+
+Coding agents should use `--agent` (or `--json`) to ingest context in one shot:
+
+```bash
+repo-context --agent
+repo-context --json
+```
+
+Both print a single JSON object on stdout (no markdown chatter). `--agent` is compact
+(one line); `--json` is pretty-printed. The payload includes `repo`, `default_branch`,
+`stack`, `structure`, `conventions`, `hot_paths`, `recent_changes` (with `open_prs` /
+`open_issues` as numbers or `null` when GitHub data cannot be read), and `dependencies`.
+
 ### Common flags
 
-- `--json` stdout JSON only
+- `--agent` compact JSON on stdout (recommended for agents)
+- `--json` stdout pretty JSON only
 - `--md` stdout Markdown only
 - `--compact` one-paragraph summary
 - `--since <period>` filter recent_changes / conventions lookback (e.g. `7 days ago`); hot_paths keep their own window
@@ -23,7 +38,8 @@ Non-git directories fail with a clear error instead of writing empty context.
 
 Open PR/issue counts require a detectable GitHub remote and a working `gh` session.
 When unavailable (no GitHub remote, missing `gh`, auth, or network), JSON keeps `null`
-and human output marks those counts as unavailable — without blaming auth alone.
+and human output marks those counts as unavailable — without inventing `0` or blaming
+auth alone.
 
 ### MCP server
 

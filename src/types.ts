@@ -51,6 +51,7 @@ export interface RefreshInfo {
 export interface RepoContext {
   version: string;
   repo: string;
+  default_branch: string | null;
   generated: string;
   stack: StackInfo;
   structure: StructureInfo;

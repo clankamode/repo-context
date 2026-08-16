@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { existsSync, writeFileSync } from "node:fs";
 import { buildRepoContext, updateRepoContext } from "./context.js";
-import { toCompactSummary, toRepoJson, toRepoMarkdown } from "./reporter.js";
+import { toCompactSummary, toRepoJson, toRepoMarkdown, toAgentJson } from "./reporter.js";
 import { main, runCli, usage } from "./index.js";
 import type { RepoContext } from "./types.js";
 
@@ -18,12 +18,14 @@ vi.mock("./context.js", () => ({
 vi.mock("./reporter.js", () => ({
   toCompactSummary: vi.fn(),
   toRepoJson: vi.fn(),
-  toRepoMarkdown: vi.fn()
+  toRepoMarkdown: vi.fn(),
+  toAgentJson: vi.fn()
 }));
 
 const context: RepoContext = {
   version: "1.0",
   repo: "repo-context",
+  default_branch: "main",
   generated: "2026-03-08T10:00:00.000Z",
   stack: {
     languages: ["TypeScript"],
@@ -73,6 +75,7 @@ beforeEach(() => {
   vi.mocked(updateRepoContext).mockReturnValue(context);
   vi.mocked(toCompactSummary).mockReturnValue("compact summary");
   vi.mocked(toRepoJson).mockReturnValue("{\"repo\":\"repo-context\"}\n");
+  vi.mocked(toAgentJson).mockReturnValue("{\"repo\":\"repo-context\"}\n");
   vi.mocked(toRepoMarkdown).mockReturnValue("# Repository Context\n");
 });
 
@@ -97,6 +100,11 @@ describe("usage", () => {
   it("documents the --update flag", () => {
     expect(usage()).toContain("--update");
   });
+
+  it("documents --agent as the agent entrypoint", () => {
+    expect(usage()).toContain("--agent");
+    expect(usage()).toMatch(/agent entrypoint/i);
+  });
 });
 
 describe("runCli", () => {
@@ -109,6 +117,17 @@ describe("runCli", () => {
     expect(updateRepoContext).not.toHaveBeenCalled();
     expect(writeFileSync).toHaveBeenCalledTimes(2);
     expect(output[0]).toContain("Generated");
+  });
+
+  it("prints compact agent JSON on stdout for --agent", () => {
+    const { output, io } = makeIo();
+
+    runCli(["--agent"], io);
+
+    expect(toAgentJson).toHaveBeenCalledWith(context);
+    expect(toRepoJson).toHaveBeenCalledWith(context);
+    expect(writeFileSync).not.toHaveBeenCalled();
+    expect(output).toEqual(["{\"repo\":\"repo-context\"}\n"]);
   });
 
   it("uses incremental update mode when --update is passed", () => {
