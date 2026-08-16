@@ -4,11 +4,12 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildRepoContext, updateRepoContext } from "./context.js";
 import { diffObjects, formatDiff } from "./diff.js";
-import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
+import { toRepoJson, toRepoMarkdown, toCompactSummary, toAgentJson } from "./reporter.js";
 import { safeReadJson } from "./utils.js";
 
 const KNOWN_FLAGS = new Set([
   "--json",
+  "--agent",
   "--md",
   "--compact",
   "--help",
@@ -22,7 +23,8 @@ const KNOWN_FLAGS = new Set([
 export function usage(): string {
   return [
     "repo-context [path]",
-    "  --json              stdout JSON only",
+    "  --agent             agent entrypoint: one compact JSON object on stdout",
+    "  --json              stdout pretty JSON only (same payload as --agent)",
     "  --md                stdout Markdown only",
     "  --compact           one-paragraph summary",
     "  --since <period>    filter recent_changes lookback (e.g. '7 days ago')",
@@ -103,10 +105,11 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
   }
 
   const jsonOnly = args.includes("--json");
+  const agentOnly = args.includes("--agent");
   const mdOnly = args.includes("--md");
 
-  if (diffMode && (compact || jsonOnly || mdOnly || outFile !== null)) {
-    throw new Error("--diff cannot be combined with --json, --md, --compact, or --out");
+  if (diffMode && (compact || jsonOnly || agentOnly || mdOnly || outFile !== null)) {
+    throw new Error("--diff cannot be combined with --json, --agent, --md, --compact, or --out");
   }
 
   const previousRepoJson = diffMode ? safeReadJson(join(repoPath, "REPO.json")) : null;
@@ -127,6 +130,7 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
   }
 
   const json = toRepoJson(context);
+  const agentJson = toAgentJson(context);
   const md = toRepoMarkdown(context);
 
   if (outFile) {
@@ -142,15 +146,18 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
     return;
   }
 
-  if (jsonOnly && mdOnly) {
-    io.write(json);
+  // --json is pretty; --agent is compact. When both are set, prefer pretty.
+  const stdoutJson = jsonOnly ? json : agentOnly ? agentJson : null;
+
+  if (stdoutJson !== null && mdOnly) {
+    io.write(stdoutJson);
     io.write("\n");
     io.write(md);
     return;
   }
 
-  if (jsonOnly) {
-    io.write(json);
+  if (stdoutJson !== null) {
+    io.write(stdoutJson);
     return;
   }
 

@@ -5,6 +5,7 @@ import { RepoContext } from "../src/types.js";
 const makeContext = (overrides: Partial<RepoContext> = {}): RepoContext => ({
   version: "1.0",
   repo: "demo",
+  default_branch: "main",
   generated: "2026-02-25T00:00:00.000Z",
   stack: {
     languages: ["TypeScript"],

@@ -1,6 +1,6 @@
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { detectStack } from "./detector.js";
-import { getConventions, getHotPaths, getRecentChanges } from "./git.js";
+import { getConventions, getDefaultBranch, getHotPaths, getRecentChanges, resolveRepoName } from "./git.js";
 import { analyzeStructure } from "./structure.js";
 import { RefreshInfo, RepoContext } from "./types.js";
 import { assertGitRepo, safeReadJson } from "./utils.js";
@@ -58,6 +58,7 @@ function isRefreshInfo(value: unknown): value is RefreshInfo {
 function isRepoContext(value: unknown): value is RepoContext {
   if (!isObject(value)) return false;
   if (!isString(value.version) || !isString(value.repo) || !isString(value.generated)) return false;
+  if (!isNullableString(value.default_branch)) return false;
   if (!isString(value.agents_md)) return false;
   if (value.refresh !== undefined && !isRefreshInfo(value.refresh)) return false;
 
@@ -130,7 +131,8 @@ export function buildRepoContext(repoPathArg: string, opts: BuildOptions = {}): 
 
   return {
     version: "1.0",
-    repo: basename(repoPath),
+    repo: resolveRepoName(repoPath),
+    default_branch: getDefaultBranch(repoPath),
     generated,
     stack,
     structure,

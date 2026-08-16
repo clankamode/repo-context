@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { toRepoJson, toRepoMarkdown, toCompactSummary } from "./reporter.js";
+import { toRepoJson, toRepoMarkdown, toCompactSummary, toAgentJson } from "./reporter.js";
 import type { RepoContext } from "./types.js";
 
 const baseContext: RepoContext = {
   version: "1.0",
   repo: "my-app",
+  default_branch: "main",
   generated: "2024-01-01T00:00:00.000Z",
   stack: {
     languages: ["TypeScript"],
@@ -71,6 +72,7 @@ describe("toRepoJson", () => {
   it("preserves null values for optional fields", () => {
     const ctx: RepoContext = {
       ...baseContext,
+      default_branch: null,
       stack: {
         ...baseContext.stack,
         runtime: null,
@@ -88,7 +90,42 @@ describe("toRepoJson", () => {
     const parsed = JSON.parse(toRepoJson(ctx)) as RepoContext;
 
     expect(parsed.stack.runtime).toBeNull();
+    expect(parsed.default_branch).toBeNull();
     expect(parsed.recent_changes.open_prs).toBeNull();
+  });
+});
+
+describe("toAgentJson", () => {
+  it("emits a single-line JSON object suitable for agent ingest", () => {
+    const result = toAgentJson(baseContext);
+    const body = result.trimEnd();
+
+    expect(body).not.toContain("\n");
+    expect(result.endsWith("\n")).toBe(true);
+
+    const parsed = JSON.parse(result) as RepoContext;
+    expect(parsed.repo).toBe("my-app");
+    expect(parsed.default_branch).toBe("main");
+    expect(parsed.recent_changes.open_prs).toBe(3);
+    expect(parsed.hot_paths).toHaveLength(2);
+    expect(parsed.conventions.commit_pattern).toBe("conventional");
+  });
+
+  it("preserves null open PR/issue counts (fail-closed, not invented zeros)", () => {
+    const ctx: RepoContext = {
+      ...baseContext,
+      recent_changes: {
+        ...baseContext.recent_changes,
+        open_prs: null,
+        open_issues: null,
+      },
+    };
+
+    const parsed = JSON.parse(toAgentJson(ctx)) as RepoContext;
+    expect(parsed.recent_changes.open_prs).toBeNull();
+    expect(parsed.recent_changes.open_issues).toBeNull();
+    expect(toAgentJson(ctx)).toContain('"open_prs":null');
+    expect(toAgentJson(ctx)).not.toContain('"open_prs":0');
   });
 });
 
@@ -113,6 +150,7 @@ describe("toRepoMarkdown", () => {
     const result = toRepoMarkdown(baseContext);
 
     expect(result).toContain("my-app");
+    expect(result).toContain("**Default Branch**: main");
     expect(result).toContain("2024-01-01T00:00:00.000Z");
   });
 

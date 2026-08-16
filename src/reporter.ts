@@ -16,6 +16,11 @@ export function toRepoJson(context: RepoContext): string {
   return `${JSON.stringify(context, null, 2)}\n`;
 }
 
+/** Compact single-line JSON for agent ingest (`--agent`). */
+export function toAgentJson(context: RepoContext): string {
+  return `${JSON.stringify(context)}\n`;
+}
+
 export function toRepoMarkdown(context: RepoContext): string {
   const hotPaths = context.hot_paths.length
     ? context.hot_paths.map((p) => `- ${p.file} (${p.commits_30d} commits/30d)`).join("\n")
@@ -25,6 +30,7 @@ export function toRepoMarkdown(context: RepoContext): string {
     "# Repository Context",
     "",
     `- **Repo**: ${context.repo}`,
+    `- **Default Branch**: ${context.default_branch ?? UNAVAILABLE}`,
     `- **Generated**: ${context.generated}`,
     "",
     "## Stack",

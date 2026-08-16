@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import { HotPath, ConventionsInfo, RecentChanges } from "./types.js";
 import { tryExec, tryGit } from "./utils.js";
 
@@ -120,6 +121,35 @@ export function getOpenPrCount(repoPath: string, githubRepo = getGitHubRepoSlug(
 
 export function getOpenIssueCount(repoPath: string, githubRepo = getGitHubRepoSlug(repoPath)): number | null {
   return getGitHubCount(repoPath, githubRepo, "issues");
+}
+
+/**
+ * Resolve the default branch from local git metadata only (no network).
+ * Prefer origin/HEAD, then common local branch names, then the current branch.
+ * Returns null when unknown — never invents a branch name.
+ */
+export function getDefaultBranch(repoPath: string): string | null {
+  const originHead = tryGit(repoPath, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+  if (originHead) {
+    const short = originHead.replace(/^origin\//, "").trim();
+    if (short) return short;
+  }
+
+  for (const candidate of ["main", "master"]) {
+    const sha = tryGit(repoPath, ["rev-parse", "--verify", `refs/heads/${candidate}`]);
+    if (sha) return candidate;
+  }
+
+  const current = tryGit(repoPath, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (current && current !== "HEAD") return current;
+  return null;
+}
+
+/**
+ * Prefer GitHub owner/repo when a remote (or gh) can resolve it; otherwise the directory name.
+ */
+export function resolveRepoName(repoPath: string): string {
+  return getGitHubRepoSlug(repoPath) ?? basename(repoPath);
 }
 
 export function getConventions(repoPath: string, since?: string): ConventionsInfo {
