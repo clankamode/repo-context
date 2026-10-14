@@ -24,7 +24,8 @@ vi.mock("./structure.js", () => ({
 
 vi.mock("./utils.js", () => ({
   safeReadJson: vi.fn(),
-  assertGitRepo: vi.fn()
+  assertGitRepo: vi.fn(),
+  assertReadableJson: vi.fn()
 }));
 
 const stack: StackInfo = {
@@ -130,8 +131,10 @@ describe("updateRepoContext", () => {
 
     expect(result.hot_paths).toEqual(hotPaths);
     expect(result.recent_changes).toEqual(recentChanges);
+    expect(result.conventions).toEqual(conventions);
     expect(getHotPaths).not.toHaveBeenCalled();
     expect(getRecentChanges).not.toHaveBeenCalled();
+    expect(getConventions).not.toHaveBeenCalled();
   });
 
   it("refreshes only stale recent_changes and preserves hot_paths timestamp", () => {
@@ -201,6 +204,33 @@ describe("updateRepoContext", () => {
 
     expect(getRecentChanges).toHaveBeenCalledWith("/fake/repo", "7 days ago");
     expect(getHotPaths).not.toHaveBeenCalled();
+  });
+
+  it("refreshes conventions when --since is provided instead of leaving stale lookback", () => {
+    const staleConventions = {
+      commit_pattern: "non-conventional",
+      conventional_commit_ratio: 0.1,
+      common_types: ["wip"]
+    };
+    vi.mocked(safeReadJson).mockReturnValueOnce(asJsonRecord(makeCachedContext({
+      conventions: staleConventions
+    })));
+
+    const nextConventions = {
+      commit_pattern: "conventional",
+      conventional_commit_ratio: 0.9,
+      common_types: ["feat"]
+    };
+    vi.mocked(getConventions).mockReturnValue(nextConventions);
+
+    const result = updateRepoContext("/fake/repo", {
+      now: new Date("2026-03-08T10:30:00.000Z"),
+      since: "7 days ago"
+    });
+
+    expect(getConventions).toHaveBeenCalledWith("/fake/repo", "7 days ago");
+    expect(result.conventions).toEqual(nextConventions);
+    expect(result.conventions).not.toEqual(staleConventions);
   });
 
   it("falls back to a full build when no cached REPO.json exists", () => {

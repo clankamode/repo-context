@@ -3,6 +3,32 @@ import { HotPath, ConventionsInfo, RecentChanges } from "./types.js";
 import { tryExec, tryGit } from "./utils.js";
 
 const CONVENTIONAL_PREFIX = /^(feat|fix|chore)(\(.+\))?:\s+.+/;
+const SINCE_RELATIVE = /^(\d+)\s+(seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago$/i;
+const SINCE_RELATIVE_DOT = /^(\d+)\.(seconds?|minutes?|hours?|days?|weeks?|months?|years?)\.ago$/i;
+const SINCE_ISO = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+const SINCE_NAMED = /^(yesterday|today|now|last\s+week|last\s+month|last\s+year)$/i;
+const SINCE_UNIX = /^\d{9,12}$/;
+
+/** Git treats unrecognized --since strings as "now" and still exits 0. Reject those here. */
+export function isValidSincePeriod(since: string): boolean {
+  const trimmed = since.trim();
+  if (!trimmed) return false;
+  return (
+    SINCE_RELATIVE.test(trimmed) ||
+    SINCE_RELATIVE_DOT.test(trimmed) ||
+    SINCE_ISO.test(trimmed) ||
+    SINCE_NAMED.test(trimmed) ||
+    SINCE_UNIX.test(trimmed)
+  );
+}
+
+export function assertValidSince(since: string): void {
+  if (!isValidSincePeriod(since)) {
+    throw new Error(
+      `Invalid --since value: ${since}. Use a git date such as '7 days ago' or '2026-01-01'.`
+    );
+  }
+}
 const GITHUB_REMOTE_PATTERN = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i;
 const GITHUB_REMOTE_LINE = /^(\S+)\s+(\S+)\s+\((fetch|push)\)$/;
 const GITHUB_REPO_SLUG = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -38,6 +64,7 @@ export function getHotPaths(repoPath: string, days = 30): HotPath[] {
 }
 
 export function getRecentChanges(repoPath: string, since?: string): RecentChanges {
+  if (since !== undefined) assertValidSince(since);
   const logArgs = ["log", "-1", "--pretty=format:%s|%H|%ci"];
   if (since) logArgs.splice(1, 0, `--since=${since}`);
   const line = tryGit(repoPath, logArgs);
@@ -153,6 +180,7 @@ export function resolveRepoName(repoPath: string): string {
 }
 
 export function getConventions(repoPath: string, since?: string): ConventionsInfo {
+  if (since !== undefined) assertValidSince(since);
   const logArgs = ["log", "-20", "--pretty=format:%s"];
   if (since) logArgs.splice(1, 0, `--since=${since}`);
   const output = tryGit(repoPath, logArgs);

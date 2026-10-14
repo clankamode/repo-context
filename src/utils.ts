@@ -11,6 +11,32 @@ export function safeReadJson(path: string): Record<string, unknown> | null {
   }
 }
 
+export type JsonFileRead =
+  | { status: "missing" }
+  | { status: "invalid" }
+  | { status: "ok"; value: Record<string, unknown> };
+
+/** Distinguish missing vs unreadable JSON. Never treats parse failure as "file not found". */
+export function readJsonFile(path: string): JsonFileRead {
+  if (!existsSync(path)) return { status: "missing" };
+  try {
+    const value: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return { status: "invalid" };
+    }
+    return { status: "ok", value: value as Record<string, unknown> };
+  } catch {
+    return { status: "invalid" };
+  }
+}
+
+/** No-op when the file is absent. Throws when it exists but cannot be parsed as a JSON object. */
+export function assertReadableJson(path: string): void {
+  if (readJsonFile(path).status === "invalid") {
+    throw new Error(`${path} exists but is not valid JSON`);
+  }
+}
+
 export function safeReadText(path: string): string | null {
   if (!existsSync(path)) return null;
   try {
@@ -40,7 +66,22 @@ export function isGitRepo(repoPath: string): boolean {
   return tryGit(repoPath, ["rev-parse", "--is-inside-work-tree"]) === "true";
 }
 
+export function isGitBinaryAvailable(): boolean {
+  try {
+    execFileSync("git", ["--version"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function assertGitRepo(repoPath: string): void {
+  if (!isGitBinaryAvailable()) {
+    throw new Error("git is not available on PATH");
+  }
   if (!isGitRepo(repoPath)) {
     throw new Error(`Not a git repository: ${repoPath}`);
   }

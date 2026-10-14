@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { existsSync, writeFileSync } from "node:fs";
-import { buildRepoContext, updateRepoContext } from "./context.js";
+import { buildRepoContext, inspectCachedRepoContext, updateRepoContext } from "./context.js";
 import { toCompactSummary, toRepoJson, toRepoMarkdown, toAgentJson } from "./reporter.js";
 import { main, runCli, usage } from "./index.js";
 import type { RepoContext } from "./types.js";
@@ -12,7 +12,8 @@ vi.mock("node:fs", () => ({
 
 vi.mock("./context.js", () => ({
   buildRepoContext: vi.fn(),
-  updateRepoContext: vi.fn()
+  updateRepoContext: vi.fn(),
+  inspectCachedRepoContext: vi.fn()
 }));
 
 vi.mock("./reporter.js", () => ({
@@ -73,6 +74,7 @@ beforeEach(() => {
   vi.mocked(existsSync).mockReturnValue(true);
   vi.mocked(buildRepoContext).mockReturnValue(context);
   vi.mocked(updateRepoContext).mockReturnValue(context);
+  vi.mocked(inspectCachedRepoContext).mockReturnValue({ status: "ok", context });
   vi.mocked(toCompactSummary).mockReturnValue("compact summary");
   vi.mocked(toRepoJson).mockReturnValue("{\"repo\":\"repo-context\"}\n");
   vi.mocked(toAgentJson).mockReturnValue("{\"repo\":\"repo-context\"}\n");
@@ -104,6 +106,10 @@ describe("usage", () => {
   it("documents --agent as the agent entrypoint", () => {
     expect(usage()).toContain("--agent");
     expect(usage()).toMatch(/agent entrypoint/i);
+  });
+
+  it("documents --since applying to conventions lookback", () => {
+    expect(usage()).toMatch(/recent_changes\/conventions lookback/);
   });
 });
 
@@ -155,13 +161,47 @@ describe("runCli", () => {
   });
 
   it("warns on stderr when --update has no REPO.json baseline", () => {
-    vi.mocked(existsSync).mockImplementation((path) => !String(path).endsWith("REPO.json"));
+    vi.mocked(inspectCachedRepoContext).mockReturnValue({ status: "missing" });
     const { errors, io } = makeIo();
 
     runCli(["./repo", "--update"], io);
 
-    expect(errors.some((line) => line.includes("performing full rebuild"))).toBe(true);
+    expect(errors.some((line) => line.includes("no REPO.json") && line.includes("performing full rebuild"))).toBe(true);
     expect(updateRepoContext).toHaveBeenCalledOnce();
+  });
+
+  it("warns on stderr when --update finds invalid REPO.json instead of staying silent", () => {
+    vi.mocked(inspectCachedRepoContext).mockReturnValue({ status: "invalid" });
+    const { errors, io } = makeIo();
+
+    runCli(["./repo", "--update"], io);
+
+    expect(errors.some((line) => line.includes("invalid REPO.json") && line.includes("performing full rebuild"))).toBe(true);
+    expect(updateRepoContext).toHaveBeenCalledOnce();
+  });
+
+  it("rejects --compact combined with --out instead of ignoring --out", () => {
+    expect(() => runCli(["--compact", "--out", "out.json"], makeIo().io)).toThrow(
+      /--compact cannot be combined with --json, --agent, --md, or --out/
+    );
+  });
+
+  it("rejects --compact combined with --json instead of ignoring --json", () => {
+    expect(() => runCli(["--json", "--compact"], makeIo().io)).toThrow(
+      /--compact cannot be combined with --json, --agent, --md, or --out/
+    );
+  });
+
+  it("rejects --out combined with --json instead of ignoring --json", () => {
+    expect(() => runCli(["--json", "--out", "out.json"], makeIo().io)).toThrow(
+      /--out cannot be combined with --json, --agent, or --md/
+    );
+  });
+
+  it("rejects an invalid --since instead of treating it as a silent no-op", () => {
+    expect(() => runCli(["--since", "not-a-valid-date"], makeIo().io)).toThrow(
+      /Invalid --since value: not-a-valid-date/
+    );
   });
 
   it("rejects unknown options instead of treating them as paths", () => {
