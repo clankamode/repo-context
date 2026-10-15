@@ -31,10 +31,10 @@ Both print a single JSON object on stdout (no markdown chatter). `--agent` is co
 - `--json` stdout pretty JSON only
 - `--md` stdout Markdown only
 - `--compact` one-paragraph summary
-- `--since <period>` filter recent_changes / conventions lookback (e.g. `7 days ago`); hot_paths keep their own window
-- `--update` refresh stale `recent_changes` and `hot_paths` from cached `REPO.json`
-- `--diff` regenerate context and print what changed vs previous `REPO.json`
-- `--out <file>` write to `.json` or `.md`
+- `--since <period>` filter recent_changes / conventions lookback (e.g. `7 days ago`); hot_paths keep their own window. Invalid periods fail instead of being treated as "now"
+- `--update` refresh stale `recent_changes` and `hot_paths` from cached `REPO.json`. With `--since`, conventions are refreshed too. Missing or invalid cache warns and falls back to a full rebuild
+- `--diff` regenerate context and print what changed vs previous `REPO.json`. A corrupt baseline is an error, not a silent "no previous file"
+- `--out <file>` write to `.json` or `.md`. Incompatible with `--json` / `--agent` / `--md` / `--compact` (those combinations used to ignore a flag)
 
 Open PR/issue counts require a detectable GitHub remote and a working `gh` session.
 When unavailable (no GitHub remote, missing `gh`, auth, or network), JSON keeps `null`

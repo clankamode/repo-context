@@ -1,9 +1,10 @@
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { detectStack } from "./detector.js";
 import { getConventions, getDefaultBranch, getHotPaths, getRecentChanges, resolveRepoName } from "./git.js";
 import { analyzeStructure } from "./structure.js";
 import { RefreshInfo, RepoContext } from "./types.js";
-import { assertGitRepo, safeReadJson } from "./utils.js";
+import { assertGitRepo, assertReadableJson, safeReadJson } from "./utils.js";
 
 const NOTABLE_DEPS = ["next", "react", "supabase-js", "vitest", "jest", "express", "fastapi", "django", "vue", "svelte"];
 export const RECENT_CHANGES_MAX_AGE_MS = 60 * 60 * 1000;
@@ -100,10 +101,19 @@ function isRepoContext(value: unknown): value is RepoContext {
   return true;
 }
 
-function readCachedRepoContext(repoPath: string): RepoContext | null {
-  const raw = safeReadJson(join(repoPath, "REPO.json"));
-  if (!isRepoContext(raw)) return null;
-  return raw;
+export type CachedRepoContext =
+  | { status: "missing" }
+  | { status: "invalid" }
+  | { status: "ok"; context: RepoContext };
+
+export function inspectCachedRepoContext(repoPath: string): CachedRepoContext {
+  const path = join(repoPath, "REPO.json");
+  const raw = safeReadJson(path);
+  if (raw === null) {
+    return existsSync(path) ? { status: "invalid" } : { status: "missing" };
+  }
+  if (!isRepoContext(raw)) return { status: "invalid" };
+  return { status: "ok", context: raw };
 }
 
 function isStale(timestamp: string, maxAgeMs: number, now: Date): boolean {
@@ -116,6 +126,7 @@ export function buildRepoContext(repoPathArg: string, opts: BuildOptions = {}): 
   const { hotDays = 30, since, now = new Date() } = opts;
   const repoPath = resolve(repoPathArg);
   assertGitRepo(repoPath);
+  assertReadableJson(join(repoPath, "package.json"));
   const stack = detectStack(repoPath);
   const structure = analyzeStructure(repoPath);
   const hot_paths = getHotPaths(repoPath, hotDays);
@@ -163,21 +174,24 @@ export function updateRepoContext(repoPathArg: string, opts: UpdateOptions = {})
   } = opts;
   const repoPath = resolve(repoPathArg);
   assertGitRepo(repoPath);
-  const cached = readCachedRepoContext(repoPath);
+  const inspected = inspectCachedRepoContext(repoPath);
 
-  if (!cached) {
+  if (inspected.status !== "ok") {
     return buildRepoContext(repoPath, { hotDays, since, now });
   }
+  const cached = inspected.context;
 
   const generated = now.toISOString();
   const refresh = getRefreshInfo(cached);
   const shouldRefreshRecentChanges =
     since !== undefined || isStale(refresh.recent_changes, recentChangesMaxAgeMs, now);
   const shouldRefreshHotPaths = isStale(refresh.hot_paths, hotPathsMaxAgeMs, now);
+  const shouldRefreshConventions = since !== undefined;
 
   return {
     ...cached,
     generated,
+    conventions: shouldRefreshConventions ? getConventions(repoPath, since) : cached.conventions,
     hot_paths: shouldRefreshHotPaths ? getHotPaths(repoPath, hotDays) : cached.hot_paths,
     recent_changes: shouldRefreshRecentChanges ? getRecentChanges(repoPath, since) : cached.recent_changes,
     refresh: {

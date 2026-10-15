@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -83,6 +83,26 @@ describe("runCli --diff", () => {
     expect(printed).toContain("No previous REPO.json found");
   });
 
+  it("errors when baseline REPO.json exists but is not valid JSON", () => {
+    const repo = makeRepo();
+    writeFileSync(join(repo, "REPO.json"), "{not json");
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const code = main([repo, "--diff"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/REPO.json exists but is not valid JSON/);
+    expect(output.join("")).not.toContain("No previous REPO.json found");
+  });
+
   it("rejects incompatible flags", () => {
     const repo = makeRepo();
 
@@ -135,6 +155,103 @@ describe("non-git paths", () => {
     expect(code).toBe(1);
     expect(errors.join("")).toMatch(/Error: Not a git repository/);
     expect(output.join("")).toBe("");
+  });
+});
+
+describe("honesty: failed inputs are not fake-healthy", () => {
+  it("rejects invalid --since instead of exiting 0 with unfiltered history", () => {
+    const repo = makeRepo();
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const code = main([repo, "--since", "not-a-valid-date", "--json"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/Invalid --since value: not-a-valid-date/);
+    expect(output.join("")).toBe("");
+  });
+
+  it("still accepts a valid --since lookback", () => {
+    const repo = makeRepo();
+    const output: string[] = [];
+
+    const code = main([repo, "--since", "7 days ago", "--json"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(): void {
+        /* unused */
+      }
+    });
+
+    expect(code).toBe(0);
+    const parsed = JSON.parse(output.join("")) as { recent_changes: { last_commit: string } };
+    expect(parsed.recent_changes.last_commit).toBe("feat: init");
+  });
+
+  it("rejects --compact --out instead of printing compact and skipping the file", () => {
+    const repo = makeRepo();
+    const outFile = join(repo, "out.json");
+    const errors: string[] = [];
+
+    const code = main([repo, "--compact", "--out", outFile], {
+      write(): void {
+        /* unused */
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/--compact cannot be combined/);
+    expect(existsSync(outFile)).toBe(false);
+  });
+
+  it("fails when package.json exists but is not valid JSON", () => {
+    const repo = makeRepo();
+    writeFileSync(join(repo, "package.json"), "{bad");
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const code = main([repo, "--json"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/package.json exists but is not valid JSON/);
+    expect(output.join("")).not.toContain('"direct": 0');
+  });
+
+  it("warns when --update finds invalid REPO.json instead of silently rebuilding", () => {
+    const repo = makeRepo();
+    writeFileSync(join(repo, "REPO.json"), "{not json");
+    const errors: string[] = [];
+
+    const code = main([repo, "--update", "--compact"], {
+      write(): void {
+        /* unused */
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(errors.join("")).toMatch(/invalid REPO.json/);
+    expect(errors.join("")).toMatch(/performing full rebuild/);
   });
 });
 

@@ -2,10 +2,11 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildRepoContext, updateRepoContext } from "./context.js";
+import { buildRepoContext, inspectCachedRepoContext, updateRepoContext } from "./context.js";
 import { diffObjects, formatDiff } from "./diff.js";
+import { assertValidSince } from "./git.js";
 import { toRepoJson, toRepoMarkdown, toCompactSummary, toAgentJson } from "./reporter.js";
-import { safeReadJson } from "./utils.js";
+import { readJsonFile } from "./utils.js";
 
 const KNOWN_FLAGS = new Set([
   "--json",
@@ -27,7 +28,7 @@ export function usage(): string {
     "  --json              stdout pretty JSON only (same payload as --agent)",
     "  --md                stdout Markdown only",
     "  --compact           one-paragraph summary",
-    "  --since <period>    filter recent_changes lookback (e.g. '7 days ago')",
+    "  --since <period>    filter recent_changes/conventions lookback (e.g. '7 days ago')",
     "  --update            refresh stale recent_changes and hot_paths only",
     "  --diff              compare previous and current REPO.json",
     "  --out <file>        write output to file (.json or .md)",
@@ -81,6 +82,9 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
   if (sinceIndex >= 0 && !since) {
     throw new Error("--since requires a value (e.g. '7 days ago')");
   }
+  if (since !== undefined) {
+    assertValidSince(since);
+  }
 
   const compact = args.includes("--compact");
   const updateOnly = args.includes("--update");
@@ -112,12 +116,51 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
     throw new Error("--diff cannot be combined with --json, --agent, --md, --compact, or --out");
   }
 
-  const previousRepoJson = diffMode ? safeReadJson(join(repoPath, "REPO.json")) : null;
+  if (compact && (jsonOnly || agentOnly || mdOnly || outFile !== null)) {
+    throw new Error("--compact cannot be combined with --json, --agent, --md, or --out");
+  }
 
-  if (updateOnly && !existsSync(join(repoPath, "REPO.json"))) {
-    io.writeError(
-      `Warning: no REPO.json at ${join(repoPath, "REPO.json")}; performing full rebuild.\n`
-    );
+  if (outFile !== null && (jsonOnly || agentOnly || mdOnly)) {
+    throw new Error("--out cannot be combined with --json, --agent, or --md");
+  }
+
+  let previousRepoJson: Record<string, unknown> | null = null;
+  if (diffMode) {
+    const baselinePath = join(repoPath, "REPO.json");
+    const baseline = readJsonFile(baselinePath);
+    switch (baseline.status) {
+      case "missing":
+        previousRepoJson = null;
+        break;
+      case "invalid":
+        throw new Error(`REPO.json exists but is not valid JSON: ${baselinePath}`);
+      case "ok":
+        previousRepoJson = baseline.value;
+        break;
+      default: {
+        const _exhaustive: never = baseline;
+        throw new Error(`unexpected REPO.json read status: ${String(_exhaustive)}`);
+      }
+    }
+  }
+
+  if (updateOnly) {
+    const cachePath = join(repoPath, "REPO.json");
+    const cached = inspectCachedRepoContext(repoPath);
+    switch (cached.status) {
+      case "missing":
+        io.writeError(`Warning: no REPO.json at ${cachePath}; performing full rebuild.\n`);
+        break;
+      case "invalid":
+        io.writeError(`Warning: invalid REPO.json at ${cachePath}; performing full rebuild.\n`);
+        break;
+      case "ok":
+        break;
+      default: {
+        const _exhaustive: never = cached;
+        throw new Error(`unexpected cache status: ${String(_exhaustive)}`);
+      }
+    }
   }
 
   const context = updateOnly

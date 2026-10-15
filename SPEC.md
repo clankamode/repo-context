@@ -41,11 +41,9 @@ GitNexus, Axon, mcp-vector-search — all exist, all fragmented, all require set
     "total_lines": 28410
   },
   "conventions": {
-    "component_pattern": "src/components/{name}/{name}.tsx",
-    "test_pattern": "src/__tests__/{name}.test.ts",
-    "import_alias": "@/ → src/",
-    "branch_pattern": "feat/{slug} | fix/{slug}",
-    "commit_pattern": "type(scope): message"
+    "commit_pattern": "conventional",
+    "conventional_commit_ratio": 0.9,
+    "common_types": ["feat", "fix"]
   },
   "hot_paths": [
     { "file": "src/app/practice/page.tsx", "commits_30d": 12 },
@@ -63,7 +61,7 @@ GitNexus, Axon, mcp-vector-search — all exist, all fragmented, all require set
     "dev": 18,
     "notable": ["next", "react", "supabase-js", "vitest"]
   },
-  "agents_md": "AI coding agents: use Next.js App Router patterns. All components in src/components/. Tests in src/__tests__/. Never push to main — branch + PR."
+  "agents_md": "AI coding agents: use existing project patterns, keep changes scoped, and follow detected test/commit conventions."
 }
 ```
 
@@ -100,7 +98,8 @@ repo-context --watch
 
 - `recent_changes` is refreshed when older than 1 hour, or immediately when `--since` is supplied
 - `hot_paths` is refreshed when older than 24 hours
-- if `REPO.json` is missing or invalid, `--update` falls back to a full rebuild
+- `conventions` is refreshed when `--since` is supplied (same lookback as `recent_changes`)
+- if `REPO.json` is missing or invalid, `--update` warns and falls back to a full rebuild
 - refresh timestamps are stored under an optional `refresh` object in `REPO.json` for future `--update` runs
 
 ## GitHub Action
@@ -136,10 +135,8 @@ Tools:
 | Entry points | package.json `main`/`exports` + framework conventions |
 | Test framework | package.json deps (vitest/jest/mocha) |
 | CI | .github/workflows/*.yml, .gitlab-ci.yml, .circleci |
-| Conventions | git log patterns, file naming analysis |
+| Conventions | recent `git log` subjects → conventional vs non-conventional + common types |
 | Hot paths | `git log --since=<N> days ago --name-only` (whole-repo; not `--follow`) |
-| Import alias | tsconfig.json paths, next.config.ts |
-| Branch pattern | `git branch -r` analysis |
 
 ## Competitive Landscape
 
@@ -153,13 +150,13 @@ Tools:
 
 ## v0.1 MVP Scope
 
-- [ ] Language + framework detection
-- [ ] Entry point detection
-- [ ] Hot paths (git log analysis)
-- [ ] Recent changes summary
-- [ ] REPO.json + REPO.md output
-- [ ] CLI with --json/--md/--out flags
-- [ ] MCP server (get_context, get_stack, get_hot_paths)
+- [x] Language + framework detection
+- [x] Entry point detection
+- [x] Hot paths (git log analysis)
+- [x] Recent changes summary
+- [x] REPO.json + REPO.md output
+- [x] CLI with --json/--md/--out flags
+- [x] MCP server (get_context, get_stack, get_hot_paths)
 - [ ] GitHub Action
 
 ## Tech Stack

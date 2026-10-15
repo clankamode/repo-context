@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { tryGit, tryExec } from "./utils.js";
-import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug, getRecentChanges, getDefaultBranch, resolveRepoName } from "./git.js";
+import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug, getRecentChanges, getDefaultBranch, resolveRepoName, isValidSincePeriod, assertValidSince } from "./git.js";
 
 vi.mock("./utils.js", () => ({
   tryGit: vi.fn(),
@@ -11,6 +11,23 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(tryGit).mockReturnValue("");
   vi.mocked(tryExec).mockReturnValue(null);
+});
+
+describe("assertValidSince", () => {
+  it("accepts common git lookback periods and ISO dates", () => {
+    expect(isValidSincePeriod("7 days ago")).toBe(true);
+    expect(isValidSincePeriod("2 weeks ago")).toBe(true);
+    expect(isValidSincePeriod("1.year.ago")).toBe(true);
+    expect(isValidSincePeriod("2026-01-01")).toBe(true);
+    expect(isValidSincePeriod("yesterday")).toBe(true);
+  });
+
+  it("rejects values git would silently treat as now", () => {
+    expect(isValidSincePeriod("not-a-valid-date")).toBe(false);
+    expect(isValidSincePeriod("banana")).toBe(false);
+    expect(isValidSincePeriod("")).toBe(false);
+    expect(() => assertValidSince("not-a-valid-date")).toThrow(/Invalid --since value: not-a-valid-date/);
+  });
 });
 
 describe("parseHotPathsFromLog", () => {
