@@ -88,15 +88,19 @@ export function assertGitRepo(repoPath: string): void {
 }
 
 export function listGitVisibleFiles(repoPath: string): string[] {
-  const output = tryGit(repoPath, ["ls-files", "--cached", "--others", "--exclude-standard"]);
+  const output = runGit(repoPath, ["ls-files", "--cached", "--others", "--exclude-standard"]);
   if (!output) return [];
   return output.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
 export function listRepoFiles(repoPath: string): string[] {
-  const gitFiles = listGitVisibleFiles(repoPath);
-  if (gitFiles.length > 0) return gitFiles;
-  return listAllFiles(repoPath);
+  try {
+    // Trust an empty git-visible set. Falling back to a full walk would treat
+    // ignored-only (or empty) work trees as a populated clean project.
+    return listGitVisibleFiles(repoPath);
+  } catch {
+    return listAllFiles(repoPath);
+  }
 }
 
 const SKIP_WALK_DIRS = new Set([

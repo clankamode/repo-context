@@ -208,6 +208,36 @@ describe("runCli", () => {
     expect(() => runCli(["--watch"], makeIo().io)).toThrow(/Unknown option: --watch/);
   });
 
+  it("rejects extra positional arguments instead of silently using only the first path", () => {
+    expect(() => runCli(["./repo", "./other"], makeIo().io)).toThrow(
+      /Unexpected extra argument: \.\/other/
+    );
+  });
+
+  it("rejects duplicate --out instead of writing only the first path", () => {
+    expect(() => runCli(["--out", "a.json", "--out", "b.json"], makeIo().io)).toThrow(
+      /--out can only be specified once/
+    );
+  });
+
+  it("rejects duplicate --since instead of using only the first value", () => {
+    expect(() => runCli(["--since", "7 days ago", "--since", "1 day ago"], makeIo().io)).toThrow(
+      /--since can only be specified once/
+    );
+  });
+
+  it("rejects --json combined with --agent instead of ignoring compact JSON", () => {
+    expect(() => runCli(["--json", "--agent"], makeIo().io)).toThrow(
+      /--json cannot be combined with --agent/
+    );
+  });
+
+  it("rejects --json combined with --md instead of concatenating JSON and markdown", () => {
+    expect(() => runCli(["--json", "--md"], makeIo().io)).toThrow(
+      /--md cannot be combined with --json or --agent/
+    );
+  });
+
   it("rejects missing paths with a clear error", () => {
     vi.mocked(existsSync).mockReturnValue(false);
     expect(() => runCli(["./missing"], makeIo().io)).toThrow(/Path not found/);

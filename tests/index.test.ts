@@ -158,6 +158,113 @@ describe("non-git paths", () => {
   });
 });
 
+describe("honesty: leftover silent no-ops and fake-healthy empties", () => {
+  it("rejects extra positional arguments instead of scanning only the first path", () => {
+    const repo = makeRepo();
+    const other = makeRepo();
+    const errors: string[] = [];
+
+    const code = main([repo, other, "--json"], {
+      write(): void {
+        /* unused */
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/Unexpected extra argument/);
+  });
+
+  it("rejects duplicate --out instead of writing only the first file", () => {
+    const repo = makeRepo();
+    const first = join(repo, "a.json");
+    const second = join(repo, "b.json");
+    const errors: string[] = [];
+
+    const code = main([repo, "--out", first, "--out", second], {
+      write(): void {
+        /* unused */
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/--out can only be specified once/);
+    expect(existsSync(first)).toBe(false);
+    expect(existsSync(second)).toBe(false);
+  });
+
+  it("rejects --json --agent instead of ignoring compact JSON", () => {
+    const repo = makeRepo();
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const code = main([repo, "--json", "--agent"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/--json cannot be combined with --agent/);
+    expect(output.join("")).toBe("");
+  });
+
+  it("rejects --agent --md instead of appending markdown onto agent JSON", () => {
+    const repo = makeRepo();
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    const code = main([repo, "--agent", "--md"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(text: string): void {
+        errors.push(text);
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(errors.join("")).toMatch(/--md cannot be combined with --json or --agent/);
+    expect(output.join("")).toBe("");
+  });
+
+  it("does not count git-ignored files as a clean populated project", () => {
+    const dir = mkdtempSync(join(tmpdir(), "repo-context-ignored-cli-"));
+    dirs.push(dir);
+    execFileSync("git", ["init", "-b", "main"], { cwd: dir, stdio: "ignore" });
+    execFileSync("git", ["config", "user.name", "Test User"], { cwd: dir, stdio: "ignore" });
+    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir, stdio: "ignore" });
+    writeFileSync(join(dir, ".gitignore"), "*\n");
+    writeFileSync(join(dir, "secret.ts"), "export const secret = 1;\n");
+    const output: string[] = [];
+
+    const code = main([dir, "--json"], {
+      write(text: string): void {
+        output.push(text);
+      },
+      writeError(): void {
+        /* unused */
+      }
+    });
+
+    expect(code).toBe(0);
+    const parsed = JSON.parse(output.join("")) as {
+      structure: { total_files: number };
+      stack: { languages: string[] };
+    };
+    expect(parsed.structure.total_files).toBe(0);
+    expect(parsed.stack.languages).toEqual([]);
+  });
+});
+
 describe("honesty: failed inputs are not fake-healthy", () => {
   it("rejects invalid --since instead of exiting 0 with unfiltered history", () => {
     const repo = makeRepo();

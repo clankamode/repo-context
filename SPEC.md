@@ -82,6 +82,8 @@ repo-context --diff          # compare against previous REPO.json
 repo-context --compact       # one-paragraph summary
 ```
 
+`--json`, `--agent`, `--md`, `--compact`, and `--out` are mutually exclusive. Extra positional arguments and duplicate `--out` / `--since` fail instead of being ignored. `get_hot_paths` `days` must be a positive integer (invalid values fail closed instead of looking like "no hot files"). Git-ignored files are not counted as project files when the git-visible set is empty.
+
 Planned (not implemented yet):
 
 ```bash
@@ -114,7 +116,7 @@ Binary: `repo-context-mcp` (stdio). Not a `repo-context --mcp` flag.
 Tools:
   - get_context(repo_path?) → full REPO.json
   - get_stack(repo_path?) → just the stack section
-  - get_hot_paths(repo_path?, days?) → hot files
+  - get_hot_paths(repo_path?, days?) → hot files (`days` is a positive integer; default 30)
   - get_conventions(repo_path?) → conventions
 ```
 

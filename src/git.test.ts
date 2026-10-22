@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { tryGit, tryExec } from "./utils.js";
-import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug, getRecentChanges, getDefaultBranch, resolveRepoName, isValidSincePeriod, assertValidSince } from "./git.js";
+import { parseHotPathsFromLog, getHotPaths, getConventions, getOpenPrCount, getOpenIssueCount, getGitHubRepoSlug, parseGitHubRepoSlug, getRecentChanges, getDefaultBranch, resolveRepoName, isValidSincePeriod, assertValidSince, assertValidHotDays } from "./git.js";
 
 vi.mock("./utils.js", () => ({
   tryGit: vi.fn(),
@@ -109,6 +109,15 @@ describe("getHotPaths", () => {
     const result = getHotPaths("/fake/repo");
 
     expect(result).toEqual([]);
+  });
+
+  it("rejects invalid lookback days instead of returning an empty hot-path list", () => {
+    expect(() => getHotPaths("/fake/repo", 0)).toThrow(/Invalid hot-path lookback days: 0/);
+    expect(() => getHotPaths("/fake/repo", -1)).toThrow(/Invalid hot-path lookback days: -1/);
+    expect(() => getHotPaths("/fake/repo", 1.5)).toThrow(/Invalid hot-path lookback days: 1.5/);
+    expect(() => getHotPaths("/fake/repo", Number.NaN)).toThrow(/Invalid hot-path lookback days/);
+    expect(() => assertValidHotDays("30")).toThrow(/Invalid hot-path lookback days: 30/);
+    expect(tryGit).not.toHaveBeenCalled();
   });
 
   it("queries git log without --follow and with a valid relative --since", () => {

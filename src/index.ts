@@ -21,6 +21,10 @@ const KNOWN_FLAGS = new Set([
   "--since"
 ]);
 
+function countFlag(args: string[], flag: string): number {
+  return args.filter((arg) => arg === flag).length;
+}
+
 export function usage(): string {
   return [
     "repo-context [path]",
@@ -29,7 +33,7 @@ export function usage(): string {
     "  --md                stdout Markdown only",
     "  --compact           one-paragraph summary",
     "  --since <period>    filter recent_changes/conventions lookback (e.g. '7 days ago')",
-    "  --update            refresh stale recent_changes and hot_paths only",
+    "  --update            refresh stale recent_changes and hot_paths from cache",
     "  --diff              compare previous and current REPO.json",
     "  --out <file>        write output to file (.json or .md)",
     "  --version           print version",
@@ -71,6 +75,13 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
     return;
   }
 
+  if (countFlag(args, "--out") > 1) {
+    throw new Error("--out can only be specified once");
+  }
+  if (countFlag(args, "--since") > 1) {
+    throw new Error("--since can only be specified once");
+  }
+
   const outIndex = args.indexOf("--out");
   const outFile = outIndex >= 0 ? args[outIndex + 1] : null;
   if (outIndex >= 0 && !outFile) {
@@ -101,6 +112,10 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
     throw new Error(`Unknown option: ${unknownFlag}\n\n${usage()}`);
   }
 
+  if (filtered.length > 1) {
+    throw new Error(`Unexpected extra argument: ${filtered[1]}`);
+  }
+
   const inputPath = filtered[0] ?? ".";
   const repoPath = resolve(inputPath);
 
@@ -122,6 +137,14 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
 
   if (outFile !== null && (jsonOnly || agentOnly || mdOnly)) {
     throw new Error("--out cannot be combined with --json, --agent, or --md");
+  }
+
+  if (jsonOnly && agentOnly) {
+    throw new Error("--json cannot be combined with --agent");
+  }
+
+  if (mdOnly && (jsonOnly || agentOnly)) {
+    throw new Error("--md cannot be combined with --json or --agent");
   }
 
   let previousRepoJson: Record<string, unknown> | null = null;
@@ -189,15 +212,7 @@ export function runCli(args = process.argv.slice(2), io: CliIo = defaultIo): voi
     return;
   }
 
-  // --json is pretty; --agent is compact. When both are set, prefer pretty.
   const stdoutJson = jsonOnly ? json : agentOnly ? agentJson : null;
-
-  if (stdoutJson !== null && mdOnly) {
-    io.write(stdoutJson);
-    io.write("\n");
-    io.write(md);
-    return;
-  }
 
   if (stdoutJson !== null) {
     io.write(stdoutJson);

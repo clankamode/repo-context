@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertGitRepo, assertReadableJson, isGitBinaryAvailable, isGitRepo, readJsonFile } from "./utils.js";
+import { assertGitRepo, assertReadableJson, isGitBinaryAvailable, isGitRepo, listRepoFiles, readJsonFile } from "./utils.js";
 
 const dirs: string[] = [];
 
@@ -42,6 +42,27 @@ describe("isGitRepo / assertGitRepo", () => {
     } finally {
       process.env.PATH = originalPath;
     }
+  });
+});
+
+describe("listRepoFiles", () => {
+  it("does not treat git-ignored files as a populated project when the visible set is empty", () => {
+    const dir = mkdtempSync(join(tmpdir(), "repo-context-ignored-"));
+    dirs.push(dir);
+    execFileSync("git", ["init", "-b", "main"], { cwd: dir, stdio: "ignore" });
+    writeFileSync(join(dir, ".gitignore"), "*\n");
+    writeFileSync(join(dir, "secret.ts"), "export const secret = 1;\n");
+    writeFileSync(join(dir, "ignored.js"), "console.log('nope')\n");
+
+    expect(listRepoFiles(dir)).toEqual([]);
+  });
+
+  it("still walks the filesystem when the path is not a git work tree", () => {
+    const dir = mkdtempSync(join(tmpdir(), "repo-context-nongit-files-"));
+    dirs.push(dir);
+    writeFileSync(join(dir, "index.ts"), "export const n = 1;\n");
+
+    expect(listRepoFiles(dir)).toEqual(["index.ts"]);
   });
 });
 
