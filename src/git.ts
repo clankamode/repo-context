@@ -29,6 +29,14 @@ export function assertValidSince(since: string): void {
     );
   }
 }
+
+/** Git + tryGit would turn junk lookbacks into an empty "no hot files" result. */
+export function assertValidHotDays(days: unknown): asserts days is number {
+  if (typeof days !== "number" || !Number.isInteger(days) || days < 1) {
+    throw new Error(`Invalid hot-path lookback days: ${String(days)}. Use a positive integer.`);
+  }
+}
+
 const GITHUB_REMOTE_PATTERN = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i;
 const GITHUB_REMOTE_LINE = /^(\S+)\s+(\S+)\s+\((fetch|push)\)$/;
 const GITHUB_REPO_SLUG = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
@@ -50,6 +58,7 @@ export function parseHotPathsFromLog(logOutput: string, topN = 10): HotPath[] {
 }
 
 export function getHotPaths(repoPath: string, days = 30): HotPath[] {
+  assertValidHotDays(days);
   // Do not use --follow here: it requires a single pathspec and makes whole-repo
   // hot-path scans fail silently (tryGit swallows stderr → empty "no hot files").
   // Use a git-recognized relative date; bare "30d" is not a valid --since value.

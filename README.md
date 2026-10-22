@@ -31,10 +31,12 @@ Both print a single JSON object on stdout (no markdown chatter). `--agent` is co
 - `--json` stdout pretty JSON only
 - `--md` stdout Markdown only
 - `--compact` one-paragraph summary
-- `--since <period>` filter recent_changes / conventions lookback (e.g. `7 days ago`); hot_paths keep their own window. Invalid periods fail instead of being treated as "now"
+- `--since <period>` filter recent_changes / conventions lookback (e.g. `7 days ago`); hot_paths keep their own window. Invalid periods fail instead of being treated as "now". Duplicate `--since` fails instead of using only the first value
 - `--update` refresh stale `recent_changes` and `hot_paths` from cached `REPO.json`. With `--since`, conventions are refreshed too. Missing or invalid cache warns and falls back to a full rebuild
 - `--diff` regenerate context and print what changed vs previous `REPO.json`. A corrupt baseline is an error, not a silent "no previous file"
-- `--out <file>` write to `.json` or `.md`. Incompatible with `--json` / `--agent` / `--md` / `--compact` (those combinations used to ignore a flag)
+- `--out <file>` write to `.json` or `.md`. Incompatible with `--json` / `--agent` / `--md` / `--compact` (those combinations used to ignore a flag). Duplicate `--out` fails instead of writing only the first path
+
+`--json`, `--agent`, and `--md` cannot be combined: those mixes used to ignore compact JSON or append markdown onto a JSON stdout stream. Extra positional arguments fail instead of being ignored. Git-ignored files are not counted as project files just because the visible git set is empty.
 
 Open PR/issue counts require a detectable GitHub remote and a working `gh` session.
 When unavailable (no GitHub remote, missing `gh`, auth, or network), JSON keeps `null`
